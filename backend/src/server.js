@@ -77,6 +77,7 @@ cron.schedule("0 0 * * *", () => {
 });
 
 const app = express();
+export default app;
 
 // Performance Middlewares
 app.use(compression());
