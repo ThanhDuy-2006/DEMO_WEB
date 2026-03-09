@@ -1,160 +1,154 @@
-# Web Bán Hàng (Production Ready)
+# 🛒 Web Bán Hàng & Quản Lý Kho (Enterprise Grade)
 
-Hệ thống bán hàng, quản lý kho, và cộng đồng mua bán được xây dựng với công nghệ hiện đại, bảo mật cao và sẵn sàng cho môi trường Production.
+Hệ thống quản lý bán hàng, kho bãi và cộng đồng mua bán hiện đại, được tối ưu cho hiệu năng và bảo mật. Phù hợp cho cả môi trường học tập và Production.
 
-## 🚀 Tech Stack
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D%2018.x-green)](https://nodejs.org/)
+[![MySQL](https://img.shields.io/badge/mysql-8.0-blue)](https://www.mysql.com/)
+[![React](https://img.shields.io/badge/frontend-React%20+%20Vite-61dafb)](https://reactjs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-- **Backend**: Node.js, Express, MySQL, Redis, Socket.IO
-- **Frontend**: React, Vite, TailwindCSS
-- **Database**: MySQL 8.0
-- **Cache**: Redis
-- **Container**: Docker, Docker Compose
-- **Server**: Nginx (Reverse Proxy)
+---
 
-## ✨ Tính năng chính
+## 🏗️ Kiến Trúc Hệ Thống
 
-- **Authentication**: JWT Access/Refresh Token Rotation, Secure Cookies, Session Management (Max 5 devices), Logout All.
-- **Real-time**: Socket.IO cho thông báo, chat.
-- **Database**: Tự động migration khi khởi động.
-- **Security**: Rate Limiting, Helmet (Headers), CORS, CSRF Protection, Input Validation.
-- **Monitoring**: Logging (Winston), Health Checks.
+```mermaid
+graph TD
+    User((Người dùng)) -->|Truy cập| Frontend[React + Vite + Tailwind]
+    Frontend -->|API Calls| Backend[Node.js + Express]
+    Backend -->|Query| DB[(MySQL 8.0)]
+    Backend -->|Cache| Redis[(Redis - Optional)]
+    Backend -->|Real-time| Socket[Socket.IO]
+```
 
-## 🛠 Cài đặt và Chạy (Docker - Khuyên dùng)
+---
 
-Cách đơn giản nhất để chạy toàn bộ hệ thống là sử dụng Docker Compose.
+## 🛠️ Yêu cầu hệ thống (Prerequisites)
 
-### 1. Clone Repo
+Trước khi bắt đầu, hãy đảm bảo máy tính của bạn đã cài đặt:
+
+1.  **Node.js** (Phiên bản 18 trở lên): [Tải tại đây](https://nodejs.org/)
+2.  **MySQL Server** (Phiên bản 8.0): [Tải tại đây](https://dev.mysql.com/downloads/installer/)
+3.  **Git**: [Tải tại đây](https://git-scm.com/downloads)
+4.  **Docker** (Tùy chọn - nếu muốn chạy nhanh): [Tải tại đây](https://www.docker.com/products/docker-desktop/)
+
+---
+
+## 🚀 Hướng Dẫn Cài Đặt Chi Tiết (Cho Người Mới)
+
+### Bước 1: Tải mã nguồn
+Mở Terminal (hoặc CMD/PowerShell) và chạy lệnh:
 ```bash
 git clone https://github.com/ThanhDuy-2006/DEMO_WEB.git
 cd DEMO_WEB
 ```
 
-### 2. Cấu hình biến môi trường
-Copy file mẫu và chỉnh sửa nếu cần:
-```bash
-cp .env.example .env
-```
-*Lưu ý: Mặc định cấu hình trong `.env.example` đã tương thích với `docker-compose.yml`.*
+### Bước 2: Cấu hình Cơ Sở Dữ Liệu (Database)
+Đây là bước quan trọng nhất. Hãy làm theo trình tự:
 
-### 3. Khởi chạy
+1.  Mở **MySQL Workbench** hoặc công cụ quản lý DB của bạn.
+2.  Tạo một database mới tên là `testdb` (hoặc tên tùy ý):
+    ```sql
+    CREATE DATABASE testdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    ```
+3.  Bạn **không cần** import SQL thủ công. Hệ thống sẽ tự động tạo bảng khi khởi động lần đầu.
+
+### Bước 3: Cấu hình Biến Môi Trường (.env)
+
+**Tại Backend:**
+1.  Vào thư mục `backend`.
+2.  Copy file `.env.example` thành `.env`.
+3.  Mở `.env` và chỉnh sửa thông tin kết nối database:
+    ```env
+    DB_HOST=localhost
+    DB_USER=root          # Username của MySQL (thường là root)
+    DB_PASSWORD=your_password  # Mật khẩu MySQL của bạn
+    DB_NAME=testdb
+    JWT_SECRET=your_random_string_here
+    ```
+
+**Tại Frontend:**
+1.  Vào thư mục `frontend`.
+2.  Copy file `.env.example` thành `.env`.
+3.  Kiểm tra `VITE_API_URL` đã đúng port của backend chưa (mặc định http://localhost:3000/api).
+
+### Bước 4: Cài đặt và Chạy
+
+**Mở 2 cửa sổ Terminal riêng biệt:**
+
+**Terminal 1 (Backend):**
+```bash
+cd backend
+npm install
+npm run dev
+```
+*Khi thấy dòng `✅ MySQL Connected successfully` và `✅ Database Migration Completed` là bạn đã thành công.*
+
+**Terminal 2 (Frontend):**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Truy cập hệ thống tại: **http://localhost:5173**
+
+---
+
+## 🐳 Cách 2: Chạy bằng Docker (Nhanh nhất)
+
+Nếu bạn đã cài Docker, chỉ cần 1 lệnh duy nhất tại thư mục gốc:
 ```bash
 docker-compose up -d --build
 ```
-Hệ thống sẽ tự động:
-- Build backend và frontend.
-- Khởi tạo MySQL và Redis.
-- Chạy script migration để tạo bảng dữ liệu.
-- Backend chạy tại port `3000`.
-- Frontend chạy tại port `80` (truy cập `http://localhost`).
+Hệ thống sẽ tự chuẩn bị mọi thứ (DB, Redis, Backend, Frontend).
 
-### 4. Truy cập
-- Web App: [http://localhost](http://localhost)
-- API Health Check: [http://localhost/api/health](http://localhost/api/health)
+---
 
-## 💻 Cài đặt và Chạy (Local - Backend/Frontend riêng)
+## ✨ Tính Năng Nổi Bật
 
-Nếu muốn chạy dev mode hoặc không dùng Docker:
+-   **Hệ thống Auth**: Đăng nhập, đăng ký, quên mật khẩu, chuyển đổi Access/Refresh Token bảo mật.
+-   **Quản lý Kho**: Quản lý sản phẩm theo nhà (House/Community), nhập xuất kho.
+-   **Giao dịch**: Hệ thống ví điện tử, lịch sử giao dịch, nạp tiền.
+-   **Bản thực tế (Production Ready)**:
+    -   Tự động backup database hàng ngày.
+    -   Giới hạn truy cập (Rate Limiting).
+    -   Nén dữ liệu (Compression) và bảo mật header (Helmet).
+-   **Real-time**: Thông báo và trò chuyện trực tiếp qua Socket.IO.
 
-### Backend
-1. `cd backend`
-2. `cp .env.example .env` (Chỉnh DB_HOST thành localhost)
-3. `npm install`
-4. `npm run dev`
+---
 
-### Frontend
-1. `cd frontend`
-2. `cp .env.example .env`
-3. `npm install`
-4. `npm run dev`
+## 📂 Cấu trúc dự án
 
-## 🚀 Deployment Guide (Production)
-
-### 1. Frontend (Vercel - Recommended)
-The React/Vite frontend is optimized for **Vercel**.
-
-1. **Push Code to GitHub**:
-   ```bash
-   git add .
-   git commit -m "Ready for deploy"
-   git push origin master
-   ```
-
-2. **Deploy on Vercel**:
-   - Go to [Vercel Dashboard](https://vercel.com/new).
-   - Import your GitHub repository.
-   - **Root Directory**: Click `Edit` and select `frontend`.
-   - **Build Command**: `npm run build` (Default).
-   - **Output Directory**: `dist` (Default).
-   - **Environment Variables**:
-     - `VITE_API_URL`: URL of your deployed backend (e.g., `https://webbanhang-api.onrender.com/api`).
-     - `VITE_SOCKET_URL`: URL of your deployed backend (e.g., `https://webbanhang-api.onrender.com`).
-     - `VITE_RECAPTCHA_SITE_KEY`: Your production ReCaptcha key.
-
-### 2. Backend & Database (Render / Railway)
-**IMPORTANT**: The Backend uses **Socket.IO** (WebSockets) and **MySQL** (Stateful DB), which are NOT supported natively on Vercel Serverless Functions. You must deploy the backend to a provider that supports long-running processes like **Render**, **Railway**, or a **VPS**.
-
-#### Option A: Render.com (Easiest Free Tier)
-1. Create a [Render Account](https://render.com).
-2. **Database (MySQL)**:
-   - Create a new **MySQL** database (Free tier handles limited connections).
-   - Copy the `Internal DB URL` or `External DB URL`.
-
-3. **Backend Service**:
-   - Create a new **Web Service**.
-   - Connect your GitHub repo.
-   - **Root Directory**: `backend`.
-   - **Build Command**: `npm install`.
-   - **Start Command**: `npm start`.
-   - **Environment Variables**:
-     - `NODE_ENV`: `production`
-     - `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`: From your MySQL service.
-     - `JWT_SECRET`: Random secure string.
-     - `FRONTEND_URL`: `https://your-frontend.vercel.app` (The Vercel URL from Step 1).
-     - `PORT`: `10000` (Render default).
-
-#### Option B: Railway.app (Simpler, Paid after trial)
-1. Create a new project on Railway.
-2. Add **MySQL** plugin.
-3. Add **Redis** plugin.
-4. Deploy the Repo (it will auto-detect Dockerfile).
-5. Set Environment Variables in Railway dashboard.
-
-### 3. Final Connection
-After deploying both:
-1. Update `VITE_API_URL` in your Vercel project settings to point to the new Backend URL.
-2. Update `FRONTEND_URL` in your Backend service settings to point to the new Vercel Frontend URL.
-3. Redeploy both services.
-
-## 📂 Cấu trúc thư mục
-
-```
-root/
-├── backend/            # Source code Node.js
+```text
+├── backend/            # API & Logic nghiệp vụ
 │   ├── src/
-│   │   ├── modules/    # Module based structure
-│   │   ├── scripts/    # Migration & Utilities
-│   │   └── ...
-│   ├── Dockerfile
-│   └── ...
-├── frontend/           # Source code React
+│   │   ├── modules/    # Chia theo tính năng (Auth, Products, Orders...)
+│   │   ├── utils/      # Tiện ích (DB, Redis, Socket)
+│   │   └── scripts/    # Script khởi tạo DB & Seeding
+├── frontend/           # Giao diện người dùng (React Vite)
 │   ├── src/
-│   ├── Dockerfile
-│   ├── nginx.conf      # Config Nginx cho Frontend container
-│   └── ...
-├── docker-compose.yml  # Orchestration
-├── .env.example        # Mẫu biến môi trường
-└── README.md
+│   │   ├── components/ # UI Reusable components
+│   │   ├── modules/    # Logic theo trang
+│   │   └── features/   # Business units
+└── docker-compose.yml  # File cấu hình Docker
 ```
 
-## 🔒 Security & Production Notes
+---
 
-- **JWT Rotation**: Refresh token có thời hạn 30 ngày, tự động xoay vòng. Access token 15 phút.
-- **Cookies**: Sử dụng `HttpOnly`, `SameSite=Strict` (trong Production).
-- **Session Limit**: Giới hạn 5 thiết bị/user. Tự động thu hồi session cũ nhất.
-- **CORS**: Chỉ cho phép domain frontend gọi API.
+## ❓ Các lỗi thường gặp (Troubleshooting)
+
+1.  **Lỗi kết nối database (ER_ACCESS_DENIED_ERROR):**
+    -   Kiểm tra lại `DB_USER` và `DB_PASSWORD` trong file `backend/.env`.
+    -   Đảm bảo MySQL Server đang chạy.
+2.  **Lỗi `npm install` bị treo:**
+    -   Hãy thử dùng: `npm install --legacy-peer-deps`.
+3.  **Port 3000 đã bị sử dụng:**
+    -   Đổi `PORT=xxxx` trong file `.env` của backend và cập nhật lại ở frontend.
+
+---
 
 ## 🤝 Đóng góp
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+Chúng tôi hoan nghênh mọi đóng góp! Vui lòng tạo Issue hoặc gửi Pull Request.
 
 ## 📄 License
-[MIT](https://choosealicense.com/licenses/mit/)
+Phát hành dưới giấy phép [MIT](LICENSE).
