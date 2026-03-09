@@ -1,0 +1,96 @@
+.marketplace-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.marketplace-header {
+  position: relative;
+  z-index: 20;
+}
+
+/* Grid System */
+.marketplace-grid {
+  display: grid;
+  gap: 32px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.marketplace-grid.grid {
+  grid-template-columns: repeat(1, 1fr);
+}
+
+@media (min-width: 768px) {
+  .marketplace-grid.grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .marketplace-grid.grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* List View Style */
+.marketplace-grid.list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.marketplace-grid.list .product-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 24px;
+  padding: 16px;
+  min-height: auto;
+}
+
+.marketplace-grid.list .card-visual {
+  width: 140px;
+  height: 140px;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.marketplace-grid.list .card-content-wrapper {
+    flex-direction: row !important;
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Floating Buttons */
+.floating-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.floating-btn.fb {
+  background: rgba(24, 119, 242, 0.15);
+  color: #1877f2;
+}
+
+.floating-btn.zalo {
+  background: rgba(0, 104, 255, 0.15);
+  color: #0068ff;
+}
+
+.floating-btn:hover {
+  transform: translateY(-4px) scale(1.05);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Scrollbar Style */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

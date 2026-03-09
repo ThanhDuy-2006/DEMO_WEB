@@ -19,6 +19,7 @@ router.post('/sync', async (req, res) => {
 router.get('/', ExpensesController.getExpenses);
 router.post('/', ExpensesController.createExpense);
 router.get('/categories', ExpensesController.getCategories);
+router.post('/categories', ExpensesController.createCategory);
 router.get('/stats', ExpensesController.getStats);
 router.get('/:id', ExpensesController.getExpenseDetail); // [NEW] Detail
 router.delete('/:id', ExpensesController.deleteExpense);

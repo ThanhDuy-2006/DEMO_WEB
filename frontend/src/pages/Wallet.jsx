@@ -116,7 +116,7 @@ export function Wallet() {
                loadDepositRequests();
           }
       } catch (err) {
-          toast.error(err.response?.data?.error || "Gửi yêu cầu thất bại");
+          toast.error(err.message || "Gửi yêu cầu thất bại");
       } finally {
           setLoading(false);
       }

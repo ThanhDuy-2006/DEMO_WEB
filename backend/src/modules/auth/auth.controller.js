@@ -29,6 +29,7 @@ const setAuthCookies = (res, accessToken, refreshToken) => {
 const clearAuthCookies = (res) => {
     res.clearCookie('accessToken', { ...COOKIE_OPTIONS });
     res.clearCookie('refreshToken', { ...COOKIE_OPTIONS, path: '/api/auth/refresh-token' });
+    res.clearCookie('visit_session', { path: '/' });
 };
 
 // Helper verify function
@@ -86,6 +87,7 @@ export const register = async (req, res) => {
       );
 
       setAuthCookies(res, accessToken, refreshToken);
+      res.clearCookie('visit_session', { path: '/' }); // Start new visit session
       
       res.json({ 
           user: { id: user.id, full_name: user.full_name, email: user.email, role: user.role } 
@@ -146,6 +148,7 @@ export const login = async (req, res) => {
       );
 
       setAuthCookies(res, accessToken, refreshToken);
+      res.clearCookie('visit_session', { path: '/' }); // Start new visit session
 
       res.json({ 
         user: { 

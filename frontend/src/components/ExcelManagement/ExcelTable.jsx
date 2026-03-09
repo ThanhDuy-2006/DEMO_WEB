@@ -3,16 +3,17 @@ import { api } from '../../services/api';
 import './ExcelManagement.css';
 import ExcelHistory from './ExcelHistory';
 import { useToast } from '../../context/ToastContext';
-import { FileUp } from 'lucide-react';
+import { FileUp, Plus, Check, X, Image as ImageIcon } from 'lucide-react';
 
-export default function ExcelManagement({ houseId, myRole, user, onActivityChange }) {
+export default function ExcelManagement({ houseId, myRole, user, onActivityChange, hideHistory }) {
     const [data, setData] = useState({ items: [], status: [], members: [] });
     const [history, setHistory] = useState([]);
-    const [newItem, setNewItem] = useState({ name: "", quantity: 1, price: "", description: "" });
+    const [newItem, setNewItem] = useState({ name: "", quantity: 1, price: "", description: "", image_url: "" });
     const [bulkText, setBulkText] = useState("");
     const [showBulkAdd, setShowBulkAdd] = useState(false);
     const [loading, setLoading] = useState(true);
     const [editingItem, setEditingItem] = useState(null); // { id, name, price, quantity }
+    const [showImages, setShowImages] = useState(false);
     const toast = useToast();
     
     // Resize Logic
@@ -53,6 +54,7 @@ export default function ExcelManagement({ houseId, myRole, user, onActivityChang
     }, [isResizing, resize, stopResizing]);
 
     const isAdmin = myRole === 'owner' || myRole === 'admin';
+    const isMember = isAdmin || myRole === 'member';
 
     const fetchData = async () => {
         try {
@@ -89,9 +91,10 @@ export default function ExcelManagement({ houseId, myRole, user, onActivityChang
                     name: newItem.name,
                     quantity: parseInt(newItem.quantity) || 1,
                     price: parseInt(String(newItem.price).replace(/[,.]/g, '')) || 0,
-                    description: newItem.description
+                    description: newItem.description,
+                    image_url: newItem.image_url
                 });
-                setNewItem({ name: "", quantity: 1, price: "", description: "" });
+                setNewItem({ name: "", quantity: 1, price: "", description: "", image_url: "" });
                 fetchData();
                 toast.success("Đã thêm sản phẩm");
             } catch (e) {
@@ -112,7 +115,8 @@ export default function ExcelManagement({ houseId, myRole, user, onActivityChang
                     name: parts[0]?.trim(),
                     quantity: parseInt(parts[1]) || 1,
                     price: parts[2] ? parseInt(String(parts[2]).replace(/[^0-9]/g, '')) : 0,
-                    description: parts[3]?.trim() || ""
+                    description: parts[3]?.trim() || "",
+                    image_url: parts[4]?.trim() || ""
                 };
             }).filter(item => item && item.name);
 
@@ -208,63 +212,95 @@ export default function ExcelManagement({ houseId, myRole, user, onActivityChang
         <div className="excel-container">
             <div className="excel-header">
                 <h2>Quản lý Dạng Bảng</h2>
-                {isAdmin && (
-                    <div className="excel-actions">
-                        <label className="flex items-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg transition-all border border-emerald-500/30 cursor-pointer">
-                            <FileUp size={14} />
-                            Tải File
+                <div className="excel-actions">
+                    <label className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-2 py-1.5 rounded-lg transition-all border ${isMember ? 'bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border-emerald-500/30 cursor-pointer shadow-lg shadow-emerald-900/20' : 'bg-white/5 text-slate-500 border-white/5 cursor-not-allowed opacity-50'}`}>
+                        <FileUp size={14} />
+                        File
+                        {isMember && (
                             <input 
                                 type="file" 
                                 hidden 
                                 accept=".xlsx, .xls"
                                 onChange={handleFileImport}
                             />
-                        </label>
-                        <button 
-                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg transition-colors border border-white/5"
-                            onClick={() => setShowBulkAdd(true)}
-                        >
-                            + Thêm hàng loạt
-                        </button>
-                        <input 
-                            type="text" 
-                            className="add-item-input flex-[2]"
-                            placeholder="Name"
-                            value={newItem.name}
-                            onChange={(e) => setNewItem({...newItem, name: e.target.value})}
-                            onKeyDown={handleAddItem}
-                        />
-                        <input 
-                            type="number" 
-                            className="add-item-input w-20"
-                            placeholder="Quantity"
-                            min="1"
-                            value={newItem.quantity}
-                            onChange={(e) => setNewItem({...newItem, quantity: e.target.value})}
-                            onKeyDown={handleAddItem}
-                        />
-                        <input 
-                            type="text" 
-                            className="add-item-input w-32"
-                            placeholder="Price"
-                            value={newItem.price}
-                            onChange={(e) => {
-                                const val = e.target.value.replace(/\D/g, '');
-                                setNewItem({...newItem, price: val});
-                            }}
-                            onKeyDown={handleAddItem}
-                        />
-                        <input 
-                            type="text" 
-                            className="add-item-input flex-[3]"
-                            placeholder="Description"
-                            value={newItem.description}
-                            onChange={(e) => setNewItem({...newItem, description: e.target.value})}
-                            onKeyDown={handleAddItem}
-                        />
-                        <button className="btn btn-primary" onClick={handleAddItem}>Thêm</button>
-                    </div>
-                )}
+                        )}
+                    </label>
+
+                    <button 
+                        className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-2 py-1.5 rounded-lg transition-all border ${showImages ? 'bg-blue-600/20 border-blue-500/50 text-blue-400' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-white/5'}`}
+                        onClick={() => setShowImages(!showImages)}
+                    >
+                        <ImageIcon size={14} />
+                        {showImages ? 'Ẩn' : 'Ảnh'}
+                    </button>
+
+                    <button 
+                        disabled={!isMember}
+                        className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold uppercase tracking-wider px-2 py-1.5 rounded-lg transition-colors border border-white/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                        onClick={() => setShowBulkAdd(true)}
+                    >
+                        + Loạt
+                    </button>
+
+                    <input 
+                        type="text" 
+                        disabled={!isMember}
+                        className="add-item-input flex-[2] disabled:opacity-30"
+                        placeholder="Name"
+                        value={newItem.name}
+                        onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                        onKeyDown={handleAddItem}
+                    />
+                    <input 
+                        type="number" 
+                        disabled={!isMember}
+                        className="add-item-input w-20 disabled:opacity-30"
+                        placeholder="Qty"
+                        min="1"
+                        value={newItem.quantity}
+                        onChange={(e) => setNewItem({...newItem, quantity: e.target.value})}
+                        onKeyDown={handleAddItem}
+                    />
+                    <input 
+                        type="text" 
+                        disabled={!isMember}
+                        className="add-item-input w-32 disabled:opacity-30"
+                        placeholder="Price"
+                        value={newItem.price}
+                        onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            setNewItem({...newItem, price: val});
+                        }}
+                        onKeyDown={handleAddItem}
+                    />
+                    <input 
+                        type="text" 
+                        disabled={!isMember}
+                        className="add-item-input flex-[2] disabled:opacity-30"
+                        placeholder="Desc"
+                        value={newItem.description}
+                        onChange={(e) => setNewItem({...newItem, description: e.target.value})}
+                        onKeyDown={handleAddItem}
+                    />
+                    <input 
+                        type="text" 
+                        disabled={!isMember}
+                        className="add-item-input flex-[2] disabled:opacity-30"
+                        placeholder="Img URL"
+                        value={newItem.image_url}
+                        onChange={(e) => setNewItem({...newItem, image_url: e.target.value})}
+                        onKeyDown={handleAddItem}
+                    />
+
+
+                    <button 
+                        disabled={!isMember}
+                        className="btn-neon-sliding disabled:opacity-30 disabled:pointer-events-none" 
+                        onClick={handleAddItem}
+                    >
+                        <span>Thêm</span><i></i>
+                    </button>
+                </div>
             </div>
 
             {/* BULK ADD MODAL */}
@@ -276,18 +312,28 @@ export default function ExcelManagement({ houseId, myRole, user, onActivityChang
                             <button onClick={() => setShowBulkAdd(false)} className="text-slate-400 hover:text-white">✕</button>
                         </div>
                         <div className="p-6 space-y-4">
-                            <p className="text-xs text-slate-400">Nhập định dạng: <span className="text-blue-400">Tên, SL, Giá, Mô tả</span> (cách nhau bởi dấu phẩy)</p>
+                            <p className="text-xs text-slate-400">Nhập định dạng: <span className="text-blue-400">Tên, SL, Giá, Mô tả, Link Ảnh</span> (cách nhau bởi dấu phẩy)</p>
                             <textarea 
                                 className="w-full h-48 bg-black/20 border border-white/10 rounded-xl p-4 text-white font-mono text-xs outline-none focus:border-blue-500 transition-colors resize-none"
-                                placeholder="Ví dụ:&#10;Sản phẩm A,10,50000,Mô tả A&#10;Sản phẩm B,5,10000,Mới"
+                                placeholder="Ví dụ:&#10;Sản phẩm A,10,50000,Mô tả A,https://link-anh.com&#10;Sản phẩm B,5,10000,Mới,https://anh2.jpg"
                                 value={bulkText}
                                 onChange={(e) => setBulkText(e.target.value)}
                                 autoFocus
                             />
                         </div>
-                        <div className="p-6 bg-black/20 flex gap-3 justify-end">
-                            <button onClick={() => setShowBulkAdd(false)} className="px-5 py-2 text-sm text-slate-300 hover:text-white">Hủy</button>
-                            <button onClick={handleBulkSubmit} className="btn btn-primary px-8">Tạo sản phẩm</button>
+                        <div className="p-6 bg-black/20 flex gap-6 justify-end h-24 items-center">
+                            <div className="button-container">
+                                <button type="button" onClick={() => setShowBulkAdd(false)} className="space-button">
+                                    <div className="bright-particles"></div>
+                                    <span>Hủy bỏ</span>
+                                </button>
+                            </div>
+                            <div className="button-container">
+                                <button type="button" onClick={handleBulkSubmit} className="space-button">
+                                    <div className="bright-particles"></div>
+                                    <span>Tạo sản phẩm</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -301,7 +347,8 @@ export default function ExcelManagement({ houseId, myRole, user, onActivityChang
                 <table className="excel-table">
                     <thead>
                         <tr>
-                            <th className="item-col">Sản phẩm</th>
+                            {showImages && <th className="image-col-header">Ảnh</th>}
+                            <th className="item-col" style={{ left: showImages ? '60px' : '0' }}>Sản phẩm</th>
                             <th className="qty-col">SL</th>
                             <th className="price-col">Tiền (đ)</th>
                             {data.members.map(m => (
@@ -317,7 +364,18 @@ export default function ExcelManagement({ houseId, myRole, user, onActivityChang
                     <tbody>
                         {data.items.map(item => (
                             <tr key={item.id}>
-                                <td className="item-cell">
+                                {showImages && (
+                                    <td className="image-cell-content">
+                                        <div className="table-img-wrapper">
+                                            {item.image_url ? (
+                                                <img src={item.image_url} alt="" onError={(e) => e.target.style.display = 'none'} />
+                                            ) : (
+                                                <div className="img-placeholder">🖼️</div>
+                                            )}
+                                        </div>
+                                    </td>
+                                )}
+                                <td className="item-cell" style={{ left: showImages ? '60px' : '0' }}>
                                     {editingItem?.id === item.id ? (
                                         <input 
                                             autoFocus
@@ -431,7 +489,7 @@ export default function ExcelManagement({ houseId, myRole, user, onActivityChang
                 </div>
             </div>
 
-            <ExcelHistory history={history} />
+            {!hideHistory && <ExcelHistory history={history} />}
         </div>
     );
 }

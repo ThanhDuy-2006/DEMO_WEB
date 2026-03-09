@@ -9,7 +9,10 @@ import passport from "./config/passport.js";
 import compression from "compression";
 import responseTime from "response-time";
 import rateLimit from "express-rate-limit";
-import logger from "./utils/logger.js";
+import helmet from "helmet";
+import xss from "xss-clean";
+import mongoSanitize from "express-mongo-sanitize";
+import logger from "./core/logger.js"; // USING NEW WINSTON LOGGER
 import cron from "node-cron";
 import { runBackup } from "./scripts/backup_db.js";
 
@@ -31,9 +34,14 @@ import followRoutes from "./modules/follow/follow.routes.js";
 import excelRoutes from "./modules/houses-excel/excel.routes.js";
 import activityRoutes from "./modules/user-activity/activity.routes.js";
 import depositRoutes from "./modules/deposits/deposits.routes.js";
-import analyticsRoutes from "./modules/analytics/analytics.routes.js";
+import digitalRoutes from "./modules/digital-products/digital.routes.js";
+import adminDigitalRoutes from "./modules/admin-digital-products/admin.digital.routes.js";
 
-// Utils
+import analyticsRoutes from "./modules/adminAnalytics/adminAnalytics.routes.js";
+import moderationRoutes from "./modules/moderation/moderation.routes.js";
+import tvRoutes from "./modules/tv/tv.routes.js";
+import adminToolsRoutes from "./modules/admin-tools/admin-tools.routes.js";
+import vocabularyRoutes from "./modules/vocabulary/vocabulary.routes.js";
 import { connectDB } from "./utils/db.js";
 import { startTrashCleanupScheduler } from "./modules/products/products.scheduler.js";
 import { startActivityScheduler } from "./modules/user-activity/activity.scheduler.js";
@@ -42,9 +50,14 @@ import { signAccessToken, signRefreshToken } from "./utils/token.js";
 import { getFingerprint } from "./utils/fingerprint.js";
 import { initRedis } from "./utils/redis.js";
 
+// Global Middlewares & Error Classes
+import globalErrorHandler from "./core/middlewares/errorHandler.js";
+import { AppError } from "./core/errors.js";
+
 // Middlewares
 import { extractUser } from "./middlewares/authMiddleware.js";
 import { trackUserActivity } from "./middlewares/activityMiddleware.js";
+import { logVisits } from "./middlewares/logVisits.js";
 
 startTrashCleanupScheduler();
 startActivityScheduler();
@@ -106,7 +119,19 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-app.use(express.json());
+// Set security HTTP headers
+app.use(helmet());
+
+// Body parser, reading data from body into req.body
+app.use(express.json({ limit: "10kb" }));
+
+// Data sanitization against NoSQL query injection
+// Note: Even if we use MySQL, mongoSanitize helps strip out object injections like {$gt: ""}
+app.use(mongoSanitize());
+
+// Data sanitization against XSS
+app.use(xss());
+
 app.use(cookieParser());
 app.use('/uploads', express.static('uploads'));
 
@@ -123,7 +148,9 @@ app.use((req, res, next) => {
 
 // AUTH EXTRACTION & ACTIVITY TRACKING
 app.use(extractUser);
+
 app.use(trackUserActivity);
+app.use(logVisits);
 
 // CSRF PROTECTION (Simple Double Submit Cookie)
 const csrfProtection = (req, res, next) => {
@@ -165,7 +192,7 @@ app.use(passport.initialize());
 // Global Rate Limiter
 const globalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute
+  max: 600, // Increased to 600 to accommodate rich UI components and dev-mode double firing
   message: { error: "Too many requests, please slow down." }
 });
 app.use("/api/", globalLimiter);
@@ -262,13 +289,21 @@ app.use("/api/follow", followRoutes);
 app.use("/api/houses-excel", excelRoutes);
 app.use("/api/admin/user-activity", activityRoutes);
 app.use("/api/admin/analytics", analyticsRoutes);
+app.use("/api/moderation", moderationRoutes);
+app.use("/api/tv", tvRoutes);
 app.use("/api/deposits", depositRoutes);
+app.use("/api/digital-products", digitalRoutes);
+app.use("/api/admin/digital-products", adminDigitalRoutes);
+app.use("/api/admin/system-tools", adminToolsRoutes);
+app.use("/api/vocabulary-learning", vocabularyRoutes);
+
+// Catch unhandled routes (404)
+app.all("*", (req, res, next) => {
+  next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
+});
 
 // GLOBAL ERROR HANDLER
-app.use((err, req, res, next) => {
-  logger.error(err);
-  res.status(500).json({ error: "Thanh toán/Hành động thất bại hoặc lỗi hệ thống. Vui lòng liên hệ Admin." });
-});
+app.use(globalErrorHandler);
 
 const port = Number(process.env.PORT || 3000);
 const httpServer = createServer(app);
@@ -288,5 +323,7 @@ const server = httpServer.listen(port, "0.0.0.0", async () => {
   }
 });
 
-// Set server timeout to 10s
-server.timeout = 10000;
+// Set server timeout to 65s for Keep-Alive
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
+server.timeout = 65000;

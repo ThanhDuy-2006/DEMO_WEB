@@ -1,22 +1,28 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { entertainmentService } from '../services/entertainmentApi';
-import { ComicCard } from '../components/Cards';
-import { ComicFilter } from '../components/ComicFilter';
-import { FilterChips } from '../components/FilterChips';
-import { Search, ListFilter, LayoutGrid, SlidersHorizontal, Loader2, ArrowUp, Library } from 'lucide-react';
+import { 
+    Search, 
+    ListFilter, 
+    ArrowUp, 
+    Library, 
+    History,
+    Sparkles,
+    LayoutGrid,
+    Info,
+    SlidersHorizontal
+} from 'lucide-react';
 import BackButton from "../../../components/common/BackButton";
+
+// New Components
+import ComicCard from '../components/comics/ComicCard';
+import ComicFilterSidebar from '../components/comics/ComicFilterSidebar';
+import ComicGrid from '../components/comics/ComicGrid';
+import ComicPagination from '../components/comics/ComicPagination';
+import { FilterChips } from '../components/FilterChips';
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const comicCache = new Map();
-
-const SkeletonCard = () => (
-    <div className="flex flex-col gap-3">
-        <div className="aspect-[3/4] bg-slate-800/40 rounded-2xl animate-pulse border border-white/5"></div>
-        <div className="h-4 bg-slate-800/40 rounded animate-pulse w-3/4"></div>
-        <div className="h-3 bg-slate-800/40 rounded animate-pulse w-1/2"></div>
-    </div>
-);
 
 export default function ComicsPage() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -31,11 +37,13 @@ export default function ComicsPage() {
     // UI state
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [showScrollTop, setShowScrollTop] = useState(false);
+    const [infiniteScroll, setInfiniteScroll] = useState(false);
     
     // Pagination & Guard state
     const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
     const isFetching = useRef(false);
     const abortControllerRef = useRef(null);
+    const observer = useRef();
 
     // Filter state
     const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
@@ -64,21 +72,27 @@ export default function ComicsPage() {
         };
         loadMetadata();
         
-        const handleScroll = () => setShowScrollTop(window.scrollY > 500);
-        window.addEventListener('scroll', handleScroll);
+        const handleScroll = () => setShowScrollTop(window.scrollY > 800);
+        window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    const filterObject = useMemo(() => ({
-        ...filters,
-        q: searchTerm,
-        page
-    }), [filters, searchTerm, page]);
+    // Last element ref for infinite scroll
+    const lastComicElementRef = useCallback(node => {
+        if (loading || !infiniteScroll) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && page < pagination.totalPages) {
+                setPage(prevPage => prevPage + 1);
+            }
+        });
+        if (node) observer.current.observe(node);
+    }, [loading, pagination.totalPages, page, infiniteScroll]);
 
-    const fetchComics = useCallback(async () => {
-        // Build Cache Key
+    const fetchComics = useCallback(async (isLoadMore = false) => {
         const cacheKey = JSON.stringify({ ...filters, q: searchTerm, page });
-        if (comicCache.has(cacheKey)) {
+        
+        if (!isLoadMore && comicCache.has(cacheKey)) {
             const cached = comicCache.get(cacheKey);
             if (Date.now() < cached.expiry) {
                 setComics(cached.data);
@@ -89,11 +103,10 @@ export default function ComicsPage() {
             comicCache.delete(cacheKey);
         }
 
-        // Guard against multiple concurrent requests
         if (isFetching.current) return;
         isFetching.current = true;
         
-        if (abortControllerRef.current) abortControllerRef.current.abort();
+        if (!isLoadMore && abortControllerRef.current) abortControllerRef.current.abort();
         abortControllerRef.current = new AbortController();
 
         setLoading(true);
@@ -103,17 +116,24 @@ export default function ComicsPage() {
             const res = await entertainmentService.filterComics({ ...filters, q: searchTerm, page });
             if (res.success) {
                 const items = res.data || [];
-                setComics(items);
+                if (isLoadMore) {
+                    setComics(prev => [...prev, ...items]);
+                } else {
+                    setComics(items);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+                
                 if (res.pagination) {
                     setPagination(res.pagination);
                 }
                 
-                // Save to Cache
-                comicCache.set(cacheKey, {
-                    data: items,
-                    pagination: res.pagination || { page, totalPages: 1 },
-                    expiry: Date.now() + CACHE_TTL
-                });
+                if (!isLoadMore) {
+                    comicCache.set(cacheKey, {
+                        data: items,
+                        pagination: res.pagination || { page, totalPages: 1 },
+                        expiry: Date.now() + CACHE_TTL
+                    });
+                }
             } else {
                 setError(res.error || "Không có kết quả");
             }
@@ -125,8 +145,6 @@ export default function ComicsPage() {
             isFetching.current = false;
         }
     }, [filters, searchTerm, page]);
-
-
 
     // Sync state with URL params
     useEffect(() => {
@@ -149,16 +167,15 @@ export default function ComicsPage() {
         return () => clearTimeout(timeoutId);
     }, [searchTerm, filters, page, setSearchParams]);
 
-    // Trigger fetch when parameters change
+    // Trigger fetch
     useEffect(() => {
-        fetchComics();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, [filters, searchTerm, page, fetchComics]);
+        fetchComics(infiniteScroll && page > 1);
+    }, [filters, searchTerm, page, fetchComics, infiniteScroll]);
 
     const handleFilterChange = (key, value) => {
         setFilters(prev => ({ ...prev, [key]: value }));
-        setPage(1); // Reset to first page
-        setComics([]); // Clear current list to show skeleton
+        setPage(1);
+        setComics([]); 
     };
 
     const handleReset = () => {
@@ -180,157 +197,192 @@ export default function ComicsPage() {
     const activeFilterCount = Object.values(filters).filter(v => v !== '' && v !== 'updated').length;
 
     return (
-        <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-10 animate-fade-in pb-20">
-            <BackButton fallbackPath="/entertainment" label="Quay lại giải trí" className="mb-8" />
-            
-            <header className="mb-12">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-2 h-8 bg-blue-600 rounded-full shadow-lg shadow-blue-500/50"></div>
-                        <h1 className="text-3xl sm:text-5xl font-black text-white uppercase tracking-tighter italic">Kho Truyện Tranh</h1>
-                    </div>
-                    <p className="text-slate-500 font-medium">Khám phá hàng ngàn bộ truyện từ khắp nơi trên thế giới</p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <Link 
-                        to="/entertainment/following"
-                        className="flex items-center gap-2 px-5 py-3.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-2xl font-bold hover:bg-rose-500 hover:text-white transition-all duration-300 group shadow-lg shadow-rose-500/5"
-                    >
-                        <Library size={18} className="group-hover:animate-bounce" />
-                        <span className="hidden sm:inline">Truyện theo dõi</span>
-                    </Link>
-
-                    <div className="relative flex-1 sm:w-80 group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={18} />
-                        <input 
-                            type="text" 
-                            placeholder="Tìm kiếm truyện..." 
-                            value={searchTerm}
-                            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-                            className="w-full bg-slate-900 border border-white/5 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all placeholder:text-slate-600"
-                        />
-                    </div>
-                    
-                    <button 
-                        onClick={() => setIsFilterOpen(true)}
-                        className="lg:hidden p-4 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/30 active:scale-95 transition-all relative"
-                    >
-                        <SlidersHorizontal size={20} />
-                        {activeFilterCount > 0 && (
-                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-slate-900 text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0b0b0f]">
-                                {activeFilterCount}
-                            </span>
-                        )}
-                    </button>
-                </div>
-            </div>
-        </header>
-
-            <div className="flex flex-col lg:flex-row gap-10">
-                {/* Left Sidebar Filter */}
-                <ComicFilter 
-                    categories={categories}
-                    filters={filters}
-                    onChange={handleFilterChange}
-                    onReset={handleReset}
-                    onApply={() => setIsFilterOpen(false)}
-                    isOpen={isFilterOpen}
-                    onClose={() => setIsFilterOpen(false)}
-                />
-
-                {/* Main Content Area */}
-                <div className="flex-1 min-w-0">
-                    {/* Active Filters Display */}
-                    <div className="mb-6 flex flex-wrap items-center gap-3">
-                        <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-widest mr-2">
-                            <LayoutGrid size={14} />
-                            <span>Hiển thị</span>
-                        </div>
-                        <FilterChips 
-                            filters={filters} 
-                            onRemove={(key) => handleFilterChange(key, '')} 
-                        />
-                        {activeFilterCount > 0 && (
-                            <button onClick={handleReset} className="text-[10px] text-red-400 font-black uppercase tracking-widest hover:underline px-2">Xóa hết</button>
-                        )}
-                    </div>
-
-                    {error && (
-                        <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-3xl text-center mb-10 animate-in fade-in zoom-in duration-300">
-                           <p className="text-red-400 font-bold mb-4">{error}</p>
-                           <button onClick={() => fetchComics()} className="px-6 py-2 bg-red-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-red-600/20">Thử lại</button>
-                        </div>
-                    )}
-
-                    {loading && comics.length === 0 ? (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-6">
-                            {[...Array(15)].map((_, i) => <SkeletonCard key={i} />)}
-                        </div>
-                    ) : (
-                        <>
-                            {comics.length > 0 ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-6">
-                                    {comics.map((comic) => (
-                                        <ComicCard key={comic._id} comic={comic} />
-                                    ))}
-                                </div>
-                            ) : !loading && (
-                                <div className="py-20 flex flex-col items-center justify-center text-center bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-white/5">
-                                    <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center text-slate-600 mb-6">
-                                        <ListFilter size={40} />
-                                    </div>
-                                    <h3 className="text-xl font-bold text-white mb-2">Không tìm thấy truyện nào</h3>
-                                    <p className="text-slate-500 max-w-xs">Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm của bạn.</p>
-                                    <button onClick={handleReset} className="mt-8 px-8 py-3 bg-white text-slate-900 font-black rounded-2xl hover:bg-blue-600 hover:text-white transition-all">Làm mới bộ lọc</button>
-                                </div>
-                            )}
-
-                            {/* Pagination Controls */}
-                            {pagination.totalPages > 1 && (
-                                <div className="mt-16 flex flex-wrap items-center justify-center gap-2">
-                                    <button 
-                                        onClick={() => setPage(1)}
-                                        disabled={page === 1}
-                                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 text-slate-400 border border-white/5 disabled:opacity-30 transition-all hover:bg-blue-600 hover:text-white"
-                                    >«</button>
-                                    <button 
-                                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                                        disabled={page === 1}
-                                        className="px-4 h-10 flex items-center justify-center rounded-xl bg-slate-800 text-slate-400 border border-white/5 disabled:opacity-30 transition-all hover:bg-blue-600 hover:text-white font-bold"
-                                    >Trước</button>
-
-                                    <div className="flex items-center gap-2 px-4 h-10 bg-slate-900/50 border border-white/10 rounded-xl">
-                                        <span className="text-blue-500 font-black">Trang {page}</span>
-                                        <span className="text-slate-600">/</span>
-                                        <span className="text-slate-400">{pagination.totalPages}</span>
-                                    </div>
-
-                                    <button 
-                                        onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
-                                        disabled={page === pagination.totalPages}
-                                        className="px-4 h-10 flex items-center justify-center rounded-xl bg-slate-800 text-slate-400 border border-white/5 disabled:opacity-30 transition-all hover:bg-blue-600 hover:text-white font-bold"
-                                    >Tiếp</button>
-                                    <button 
-                                        onClick={() => setPage(pagination.totalPages)}
-                                        disabled={page === pagination.totalPages}
-                                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-800 text-slate-400 border border-white/5 disabled:opacity-30 transition-all hover:bg-blue-600 hover:text-white"
-                                    >»</button>
-                                </div>
-                            )}
-                        </>
-                    )}
-                </div>
+        <div className="min-h-screen bg-[#0b0b0f] text-slate-200 font-sans selection:bg-purple-600 selection:text-white">
+            {/* Background Decorations */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-purple-600/5 blur-[150px] rounded-full -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-blue-600/5 blur-[120px] rounded-full translate-y-1/2 -translate-x-1/2" />
             </div>
 
-            {/* Scroll to Top */}
-            <button 
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                className={`fixed bottom-8 right-8 p-4 bg-white text-slate-900 rounded-full shadow-2xl z-50 transition-all duration-300 transform ${showScrollTop ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'}`}
-            >
-                <ArrowUp size={24} />
-            </button>
+            <div className="relative max-w-[1800px] mx-auto p-4 sm:p-8 lg:p-12 animate-fade-in pb-32">
+                <div className="flex items-center justify-between mb-12">
+                    <BackButton fallbackPath="/entertainment" label="Quay lại" className="text-slate-400 hover:text-white" />
+
+                </div>
+
+                {/* Header Section */}
+                <header className="mb-16">
+                    <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-10">
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-4 h-12 bg-gradient-to-b from-purple-600 to-blue-600 rounded-full shadow-lg shadow-purple-500/20" />
+                                <h1 className="text-5xl sm:text-7xl font-black text-white uppercase tracking-tighter italic">
+                                    Kho Truyện <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-blue-500">Tranh</span>
+                                </h1>
+                            </div>
+                            <div className="flex items-center gap-6">
+                                <p className="text-slate-500 font-medium max-w-lg leading-relaxed text-sm sm:text-base">
+                                    Khám phá hàng ngàn bộ truyện tranh tinh tuyển. Cập nhật mới mỗi ngày với trải nghiệm đọc cao cấp nhất.
+                                </p>
+                                <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full border border-white/5 backdrop-blur-md">
+                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-white/50">{pagination.totalItems || 0} truyện</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-4">
+                            {/* Search Bar */}
+                            <div className="relative w-full sm:w-96 group">
+                                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-500 transition-all duration-300" size={20} />
+                                <input 
+                                    type="text" 
+                                    placeholder="Tên truyện, tác giả..." 
+                                    value={searchTerm}
+                                    onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+                                    className="w-full bg-[#1a1c23] border border-white/5 rounded-[1.5rem] py-5 pl-14 pr-6 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all placeholder:text-slate-700 shadow-2xl"
+                                />
+                            </div>
+
+                            <Link 
+                                to="/entertainment/following"
+                                className="flex items-center gap-3 px-8 py-5 bg-gradient-to-r from-purple-600 to-purple-800 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-purple-600/20 group"
+                            >
+                                <Library size={18} className="group-hover:rotate-12 transition-transform" />
+                                <span>Theo dõi</span>
+                            </Link>
+                            
+                            <button 
+                                onClick={() => setIsFilterOpen(true)}
+                                className="lg:hidden p-5 bg-[#1a1c23] text-white rounded-[1.5rem] shadow-xl border border-white/10 active:scale-95 transition-all relative"
+                            >
+                                <SlidersHorizontal size={20} />
+                                {activeFilterCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 w-6 h-6 bg-purple-600 text-white text-xs font-black rounded-full flex items-center justify-center border-4 border-[#0b0b0f]">
+                                        {activeFilterCount}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <div className="flex flex-col lg:flex-row gap-12 items-start">
+                    {/* Left Sidebar Filter */}
+                    <ComicFilterSidebar 
+                        categories={categories}
+                        filters={filters}
+                        onChange={handleFilterChange}
+                        onReset={handleReset}
+                        onApply={() => {
+                            setIsFilterOpen(false);
+                            fetchComics();
+                        }}
+                        isOpen={isFilterOpen}
+                        onClose={() => setIsFilterOpen(false)}
+                        activeFilterCount={activeFilterCount}
+                    />
+
+                    {/* Main Content Area */}
+                    <div className="flex-1 min-w-0 w-full">
+                        {/* Control Bar */}
+                        <div className="mb-10 flex flex-wrap items-center justify-between gap-6 pb-6 border-b border-white/5">
+                            <div className="flex flex-wrap items-center gap-4">
+                                <div className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                                    <ListFilter size={14} className="text-purple-500" />
+                                    <span>Đang lọc:</span>
+                                </div>
+                                <FilterChips 
+                                    filters={filters} 
+                                    onRemove={(key) => handleFilterChange(key, '')} 
+                                />
+                                {activeFilterCount > 0 && (
+                                    <button 
+                                        onClick={handleReset} 
+                                        className="text-[10px] text-purple-400 font-black uppercase tracking-widest hover:text-white transition-colors"
+                                    >
+                                        Làm mới tất cả
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-6">
+                                {/* Infinite Scroll Toggle */}
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Infinite</span>
+                                    <button 
+                                        onClick={() => setInfiniteScroll(!infiniteScroll)}
+                                        className={`w-10 h-5 rounded-full transition-all relative ${infiniteScroll ? 'bg-purple-600' : 'bg-slate-800'}`}
+                                    >
+                                        <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${infiniteScroll ? 'left-6' : 'left-1'}`} />
+                                    </button>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <button className="p-2 text-purple-500 bg-purple-500/10 rounded-lg">
+                                        <LayoutGrid size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {error && (
+                            <div className="bg-rose-500/5 border border-rose-500/10 p-12 rounded-[2.5rem] text-center mb-16 animate-in zoom-in duration-500">
+                               <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-rose-500">
+                                   <Info size={32} />
+                               </div>
+                               <h3 className="text-xl font-bold text-white mb-2">Đã xảy ra lỗi</h3>
+                               <p className="text-slate-500 mb-8 max-w-sm mx-auto">{error}</p>
+                               <button onClick={() => fetchComics()} className="px-10 py-4 bg-rose-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-rose-600/20 hover:scale-105 transition-all">Thử lại ngay</button>
+                            </div>
+                        )}
+
+                        {/* Comic Grid */}
+                        <ComicGrid comics={comics} loading={loading} />
+
+                        {/* Last Element for Infinite Scroll */}
+                        <div ref={lastComicElementRef} className="h-10 w-full" />
+
+                        {/* Empty State */}
+                        {!loading && comics.length === 0 && !error && (
+                            <div className="py-32 flex flex-col items-center justify-center text-center bg-[#1a1c23]/30 rounded-[3rem] border-2 border-dashed border-white/5 animate-in fade-in duration-700">
+                                <div className="w-24 h-24 bg-purple-500/10 rounded-full flex items-center justify-center text-purple-500/40 mb-8">
+                                    <Search size={48} />
+                                </div>
+                                <h3 className="text-2xl font-black text-white mb-3 uppercase tracking-tighter italic">Không có kết quả</h3>
+                                <p className="text-slate-500 max-w-xs mx-auto text-sm leading-relaxed mb-10">Chúng tôi không tìm thấy bộ truyện nào phù hợp với bộ lọc hiện tại của bạn.</p>
+                                <button onClick={handleReset} className="px-12 py-5 bg-white text-slate-900 font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-purple-600 hover:text-white transition-all shadow-xl">Reset bộ lọc</button>
+                            </div>
+                        )}
+
+                        {/* Pagination Section */}
+                        {!infiniteScroll && !loading && comics.length > 0 && (
+                            <ComicPagination 
+                                page={page} 
+                                totalPages={pagination.totalPages} 
+                                onPageChange={(p) => setPage(p)} 
+                            />
+                        )}
+
+                        {/* Results Count footer */}
+                        {!loading && comics.length > 0 && (
+                            <div className="mt-20 text-center">
+                                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-700">
+                                    Hiển thị {comics.length} / {pagination.totalItems} truyện
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Scroll to Top */}
+                <button 
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className={`fixed bottom-10 right-10 w-16 h-16 bg-white text-slate-900 rounded-2xl shadow-2xl z-50 transition-all duration-500 flex items-center justify-center hover:scale-110 active:scale-95 border border-white/50 ${showScrollTop ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'}`}
+                >
+                    <ArrowUp size={24} strokeWidth={3} />
+                </button>
+            </div>
         </div>
     );
 }

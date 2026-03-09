@@ -19,7 +19,7 @@ export const checkout = async (req, res) => {
     const { productIds } = req.body; // Expect an array of product IDs if selective
     
     let query = `
-        SELECT ci.product_id, ci.quantity as qty, p.price, p.unit_price, p.quantity as total_qty, p.seller_id, p.house_id, h.name as house_name
+        SELECT ci.product_id, ci.quantity as qty, p.price, p.unit_price, p.quantity as total_qty, p.seller_id, p.house_id, h.name as house_name, p.name as product_name
         FROM cart_items ci
         JOIN products p ON p.id = ci.product_id
         JOIN houses h ON h.id = p.house_id
@@ -76,6 +76,13 @@ export const checkout = async (req, res) => {
         [totalAmount, userId]
     );
 
+    // Record Buyer Transaction
+    await connection.execute(
+        `INSERT INTO wallet_transactions (user_id, type, amount, description) 
+         VALUES (?, ?, ?, ?)`,
+        [userId, 'PURCHASE', -totalAmount, `Thanh toán đơn hàng cho ${houseNames}`]
+    );
+
     // Group by House
     const itemsByHouse = items.reduce((acc, item) => {
         if (!acc[item.house_id]) acc[item.house_id] = [];
@@ -86,7 +93,7 @@ export const checkout = async (req, res) => {
     const orderIds = [];
     for (const houseId of Object.keys(itemsByHouse)) {
         const houseItems = itemsByHouse[houseId];
-        const houseTotal = houseItems.reduce((sum, i) => sum + Number(i.price) * i.qty, 0);
+        const houseTotal = houseItems.reduce((sum, i) => sum + Number(i.actual_unit_price) * i.qty, 0);
 
         // Create Order
         const [oRes] = await connection.execute(
@@ -119,13 +126,20 @@ export const checkout = async (req, res) => {
             // Add Order Item
             await connection.execute(
                 `INSERT INTO order_items (order_id, product_id, seller_id, quantity, price) VALUES (?, ?, ?, ?, ?)`,
-                [orderId, item.product_id, item.seller_id, item.qty, item.price]
+                [orderId, item.product_id, item.seller_id, item.qty, item.actual_unit_price]
             );
 
             // Pay Seller (New Wallet System)
             await connection.execute(
                 `UPDATE wallets SET balance = balance + ? WHERE user_id = ?`,
-                [Number(item.price) * item.qty, item.seller_id]
+                [Number(item.actual_unit_price) * item.qty, item.seller_id]
+            );
+
+            // Record Seller Transaction
+            await connection.execute(
+                `INSERT INTO wallet_transactions (user_id, related_user_id, type, amount, description) 
+                 VALUES (?, ?, ?, ?, ?)`,
+                [item.seller_id, userId, 'SALE', Number(item.actual_unit_price) * item.qty, `Bán sản phẩm '${item.product_name}' tại ${item.house_name}`]
             );
 
             // Record in NEW Transactions System (For House History)
@@ -254,17 +268,39 @@ export const getMyPurchasedItems = async (req, res) => {
                 oi.quantity, 
                 oi.price, 
                 o.created_at,
-                p.name as product_name, 
+                CONVERT(p.name USING utf8mb4) as product_name, 
                 p.image_url, 
-                h.name as house_name,
-                h.id as house_id
+                CONVERT(h.name USING utf8mb4) as house_name,
+                h.id as house_id,
+                CONVERT('physical' USING utf8mb4) as type,
+                CONVERT('' USING utf8mb4) as description
             FROM order_items oi
             JOIN orders o ON o.id = oi.order_id
             JOIN products p ON p.id = oi.product_id
             JOIN houses h ON h.id = o.house_id
             WHERE o.buyer_id = ?
-            ORDER BY o.created_at DESC
-        `, [userId]);
+            
+            UNION ALL
+            
+            SELECT 
+                do.id, 
+                do.product_id, 
+                1 as quantity, 
+                do.price, 
+                do.created_at,
+                CONVERT(dp.name USING utf8mb4) as product_name, 
+                NULL as image_url, 
+                CONVERT('Chợ SP Số' USING utf8mb4) as house_name,
+                NULL as house_id,
+                CONVERT('digital' USING utf8mb4) as type,
+                CONVERT(do.account_details USING utf8mb4) as description
+            FROM digital_orders do
+            JOIN digital_products dp ON dp.id = do.product_id
+            WHERE do.user_id = ? AND do.status = 'activated'
+            
+            ORDER BY created_at DESC
+        `, [userId, userId]);
+        console.log(`[PurchasedItems] Found ${rows.length} items for user ${userId}`);
         res.json(rows);
     } catch (e) {
         console.error(e);

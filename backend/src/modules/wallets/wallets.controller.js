@@ -103,10 +103,22 @@ export const adminDeposit = async (req, res) => {
         await connection.execute(`INSERT IGNORE INTO wallets (user_id, balance) VALUES (?, 0)`, [targetUserId]);
         const [wRows] = await connection.execute(`SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE`, [targetUserId]);
         
+        // --- NEW: Record as an APPROVED deposit request ---
+        const [drRes] = await connection.execute(
+            `INSERT INTO deposit_requests (user_id, amount, method, status, admin_note, processed_at) 
+             VALUES (?, ?, 'CASH', 'APPROVED', 'Admin nạp tiền trực tiếp', NOW())`,
+            [targetUserId, amount]
+        );
+        const drId = drRes.insertId;
+
         await connection.execute(`UPDATE wallets SET balance = balance + ? WHERE user_id = ?`, [amount, targetUserId]);
         
-        // Record as a deposit transaction if possible (optional but recommended)
-        // For now, focus on the balance sync
+        // Record as a deposit transaction linked to the request
+        await connection.execute(
+            `INSERT INTO wallet_transactions (user_id, related_user_id, type, amount, description, deposit_request_id) 
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [targetUserId, req.user.id, 'DEPOSIT', amount, `Admin nạp tiền vào tài khoản`, drId]
+        );
         
         await connection.commit();
 
@@ -162,6 +174,13 @@ export const topUpWallet = async (req, res) => {
         await connection.execute(`SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE`, [userId]);
 
         await connection.execute(`UPDATE wallets SET balance = balance + ? WHERE user_id = ?`, [amount, userId]);
+        
+        // Record top-up transaction
+        await connection.execute(
+            `INSERT INTO wallet_transactions (user_id, type, amount, description) 
+             VALUES (?, 'DEPOSIT', ?, ?)`,
+            [userId, 'DEPOSIT', amount, 'Nạp tiền vào ví (Hệ thống)']
+        );
         
         await connection.commit();
 

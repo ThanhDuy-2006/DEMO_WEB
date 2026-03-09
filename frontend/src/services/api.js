@@ -110,6 +110,9 @@ export const expenses = {
     updateCategory: (id, data) => api.patch(`/expenses/${id}/category`, data),
     delete: (id) => api.delete(`/expenses/${id}`),
     restore: (id) => api.patch(`/expenses/${id}/restore`),
+    createCategory: (data) => api.post('/expenses/categories', data),
     sync: () => api.post('/expenses/sync'),
     migrate: () => api.post('/expenses/migrate'),
 };
+
+export default api;

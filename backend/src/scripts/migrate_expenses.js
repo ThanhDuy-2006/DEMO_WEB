@@ -55,7 +55,7 @@ async function migrate() {
                 note TEXT,
                 image_url VARCHAR(255),
                 house_id INT NULL,
-                source_type ENUM('MANUAL', 'WALLET', 'ORDER') DEFAULT 'MANUAL',
+                source_type ENUM('MANUAL', 'WALLET', 'ORDER', 'HOUSE_TX') DEFAULT 'MANUAL',
                 source_id INT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

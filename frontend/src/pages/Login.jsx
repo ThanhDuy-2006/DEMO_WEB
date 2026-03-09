@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { Link } from "react-router-dom";
 import BackButton from "../components/common/BackButton";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, LogIn } from "lucide-react";
 import "./Login.css";
 
 // Google Icon Component
@@ -49,7 +49,6 @@ export default function Login() {
     <div className="login-page-body">
         <div className="login-container">
             <div className="login-card">
-                <BackButton fallbackPath="/" label="Về trang chủ" className="!absolute left-4 top-4 !bg-transparent hover:!bg-slate-200/20 shadow-none text-slate-500" />
                 {!success ? (
                     <>
                         <div className="login-header">
@@ -110,14 +109,18 @@ export default function Login() {
                                 <Link to="/forgot-password" className="forgot-password">Quên mật khẩu?</Link>
                             </div>
 
-                            <button 
-                                type="submit" 
-                                className={`login-btn btn ${isLoading ? 'loading' : ''}`} 
-                                disabled={isLoading}
-                            >
-                                <span className="btn-text">Đăng Nhập</span>
-                                <span className="btn-loader"></span>
-                            </button>
+                             <div className="flex justify-center mt-6">
+                                <button 
+                                    type="submit" 
+                                    className={`login-btn flex justify-center items-center gap-2 ${isLoading ? 'loading' : ''}`} 
+                                    disabled={isLoading}
+                                    style={{ transition: 'none', transform: 'none', boxShadow: 'none' }}
+                                >
+                                    <LogIn size={20} className="btn-text" />
+                                    <span className="btn-text">Đăng Nhập</span>
+                                    {isLoading && <div className="btn-loader"></div>}
+                                </button>
+                            </div>
 
                             <div className="text-center mt-4">
                                 <Link to="/forgot-password" style={{fontSize: '13px', color: '#94a3b8', textDecoration: 'none'}}>Quên mật khẩu?</Link>

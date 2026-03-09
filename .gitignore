@@ -37,4 +37,24 @@ backend/uploads/*
 # Other temp files
 backend/debug_*.json
 backend/movie_detail.json
+backend/tmp_check_*.js
+backend/*.json
+!backend/package.json
+!backend/package-lock.json
+!backend/vercel.json
+backend/*.db
 confirm_matches.txt
+*.json
+!package.json
+!package-lock.json
+!composer.json
+!*.example
+tree.txt
+arch_dump.json
+str_dump.json
+verify-trash-logic.js
+check_db*.js
+db_check.js
+test_api.js
+tmp/
+backend/tmp/

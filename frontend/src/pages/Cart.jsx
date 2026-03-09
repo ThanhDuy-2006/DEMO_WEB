@@ -96,7 +96,7 @@ export function Cart() {
 
   const hasItems = cart.items?.length > 0;
   const selectedItems = cart.items?.filter(item => selectedIds.includes(item.product_id)) || [];
-  const total = selectedItems.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+  const total = selectedItems.reduce((sum, item) => sum + Number(item.unit_price || item.price) * item.quantity, 0);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 relative">
@@ -161,7 +161,7 @@ export function Cart() {
                                         {/* Food House Details */}
                                         {item.house_type === 'food' && (
                                             <div className="mt-1 text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded inline-block">
-                                                🍽️ Chung tiền: {formatMoney(item.price * (item.remaining_slots || 1))} / {item.remaining_slots || 1} suất
+                                                🍽️ Chung tiền: {formatMoney((item.unit_price || item.price) * (item.remaining_slots || 1))} / {item.remaining_slots || 1} suất
                                             </div>
                                         )}
 
@@ -198,7 +198,7 @@ export function Cart() {
                                 </div>
                                 
                                 <div className="flex sm:flex-col items-center sm:items-end gap-4 sm:gap-1 w-full sm:w-auto justify-between pl-9 sm:pl-0">
-                                    <span className="font-bold text-white text-lg">{formatMoney(item.price * item.quantity)}</span>
+                                    <span className="font-bold text-white text-lg">{formatMoney((item.unit_price || item.price) * item.quantity)}</span>
                                     <button 
                                         onClick={() => handleRemove(item.product_id)}
                                         className="text-red-400 text-sm hover:underline flex items-center gap-1 mt-2 opacity-70 hover:opacity-100 transition-opacity"
@@ -228,11 +228,11 @@ export function Cart() {
                                     <div key={item.product_id} className="flex flex-col gap-0.5">
                                         <div className="flex justify-between text-sm text-slate-300">
                                             <span className="truncate font-medium">{item.name}</span>
-                                            <span className="font-bold text-white">{formatMoney(item.price * item.quantity)}</span>
+                                            <span className="font-bold text-white">{formatMoney((item.unit_price || item.price) * item.quantity)}</span>
                                         </div>
                                         <div className="flex justify-between text-[10px] text-slate-500">
                                             <span>Số lượng: {item.quantity}</span>
-                                            <span>Đơn giá: {formatMoney(item.price)}</span>
+                                            <span>Đơn giá: {formatMoney(item.unit_price || item.price)}</span>
                                         </div>
                                     </div>
                                 ))

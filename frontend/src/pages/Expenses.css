@@ -1,70 +1,92 @@
 /* Expenses Page */
 .expenses-page {
     padding-bottom: 80px; /* Space for FAB */
-    animation: fadeIn 0.3s ease-out;
+    animation: fadeIn 0.4s ease-out;
 }
 
 .expense-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    padding: 16px;
-    margin-bottom: 16px;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
 }
 
 .expense-summary-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    gap: 16px;
     margin-bottom: 24px;
 }
 
 .summary-card {
-    background: rgba(255,255,255,0.03);
-    border-radius: 16px;
-    padding: 16px;
+    background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.summary-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 
 .summary-card h3 {
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 800;
     color: #94a3b8;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
 }
 
 .summary-card .value {
-    font-size: 18px;
-    font-weight: 700;
-    color: white;
+    font-size: 24px;
+    font-weight: 900;
+    text-shadow: 0 0 20px rgba(255,255,255,0.2);
 }
 
-.summary-card.income .value { color: #4ade80; }
-.summary-card.expense .value { color: #f87171; }
+.summary-card.income .value { 
+    background: linear-gradient(to right, #4ade80, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.summary-card.expense .value { 
+    background: linear-gradient(to right, #f87171, #f43f5e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
 
 .comparison-badge {
-    margin-top: 8px;
-    font-size: 11px;
-    padding: 2px 8px;
+    margin-top: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 12px;
     border-radius: 12px;
-    background: rgba(255,255,255,0.1);
     display: inline-flex;
     align-items: center;
     gap: 4px;
 }
-.comparison-badge.up { color: #f87171; background: rgba(248, 113, 113, 0.1); }
-.comparison-badge.down { color: #4ade80; background: rgba(74, 222, 128, 0.1); }
+.comparison-badge.up { color: #f87171; background: rgba(248, 113, 113, 0.15); border: 1px solid rgba(248, 113, 113, 0.3); }
+.comparison-badge.down { color: #4ade80; background: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.3); }
 
 /* Expense List */
 .expense-group-header {
-    font-size: 13px;
+    font-size: 14px;
+    font-weight: 700;
     color: #94a3b8;
-    margin: 16px 0 8px;
-    padding-left: 4px;
+    margin: 20px 0 10px;
+    padding-left: 8px;
     display: flex;
     justify-content: space-between;
 }
@@ -72,25 +94,30 @@
 .expense-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px;
-    background: rgba(255,255,255,0.03);
+    gap: 16px;
+    padding: 16px;
+    background: rgba(255,255,255,0.02);
     border-bottom: 1px solid rgba(255,255,255,0.05);
-    transition: background 0.2s;
+    transition: all 0.3s ease;
+    cursor: pointer;
 }
-.expense-item:first-child { border-top-left-radius: 12px; border-top-right-radius: 12px; }
-.expense-item:last-child { border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; border-bottom: none; }
-.expense-item:active { background: rgba(255,255,255,0.08); }
+.expense-item:hover {
+    background: rgba(255,255,255,0.06);
+    transform: translateX(4px);
+}
+.expense-item:first-child { border-top-left-radius: 16px; border-top-right-radius: 16px; }
+.expense-item:last-child { border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; border-bottom: none; }
 
 .cat-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
+    font-size: 24px;
     flex-shrink: 0;
+    box-shadow: inset 0 0 10px rgba(255,255,255,0.1);
 }
 
 .expense-details {
@@ -99,46 +126,51 @@
 }
 
 .expense-cat {
-    font-weight: 600;
-    color: #e2e8f0;
-    font-size: 14px;
+    font-weight: 700;
+    color: #f8fafc;
+    font-size: 15px;
 }
 
 .expense-note {
-    font-size: 12px;
-    color: #64748b;
+    font-size: 13px;
+    color: #94a3b8;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-top: 2px;
 }
 
 .expense-amount {
-    font-weight: 700;
-    font-size: 14px;
+    font-weight: 800;
+    font-size: 16px;
     white-space: nowrap;
 }
-.expense-amount.income { color: #4ade80; }
-.expense-amount.expense { color: #e2e8f0; }
+.expense-amount.income { color: #34d399; text-shadow: 0 0 10px rgba(52, 211, 153, 0.4); }
+.expense-amount.expense { color: #f8fafc; }
 
 /* FAB */
 .fab-add {
     position: fixed;
-    bottom: 80px; /* Above bottom nav if exists, or just safe area */
-    right: 20px;
-    width: 56px;
-    height: 56px;
-    border-radius: 28px;
-    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    bottom: 30px; 
+    right: 30px;
+    width: 64px;
+    height: 64px;
+    border-radius: 32px;
+    background: linear-gradient(135deg, #06b6d4, #6366f1);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 28px;
-    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.5);
-    border: none;
+    font-size: 32px;
+    box-shadow: 0 10px 25px rgba(99, 102, 241, 0.5);
+    border: 2px solid rgba(255,255,255,0.2);
     cursor: pointer;
     z-index: 50;
-    transition: transform 0.2s;
+    transition: all 0.3s ease;
+}
+.fab-add:hover {
+    transform: scale(1.1) rotate(90deg);
+    box-shadow: 0 15px 35px rgba(99, 102, 241, 0.7);
 }
 .fab-add:active { transform: scale(0.95); }
 

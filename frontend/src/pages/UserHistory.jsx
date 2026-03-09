@@ -1,11 +1,16 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { api } from "../services/api";
 import BackButton from "../components/common/BackButton";
 import "./UserWarehouse.css"; // Reuse existing styles
 
 export function UserHistory() {
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const initialType = queryParams.get('type') || 'all';
+
   const [activeTab, setActiveTab] = useState("bought"); // 'bought' | 'sold'
+  const [filterType, setFilterType] = useState(initialType); // 'all' | 'physical' | 'digital'
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -15,16 +20,23 @@ export function UserHistory() {
 
   const isFetching = useRef(false);
 
+  useEffect(() => {
+    const type = queryParams.get('type') || 'all';
+    setFilterType(type);
+  }, [location.search]);
+
   const loadData = async () => {
     if (isFetching.current) return;
     isFetching.current = true;
     setLoading(true);
     try {
       const endpoint = activeTab === 'bought' ? '/orders/my-items' : '/orders/sold-items';
+      console.log(`[UserHistory] Fetching from ${endpoint}...`);
       const data = await api.get(endpoint);
+      console.log(`[UserHistory] Received ${Array.isArray(data) ? data.length : 'not an array'} items`);
       setItems(Array.isArray(data) ? data : []);
     } catch (e) {
-      console.error(e);
+      console.error("[UserHistory] Fetch error:", e);
       setItems([]);
     } finally {
       setLoading(false);
@@ -35,68 +47,96 @@ export function UserHistory() {
   const formatMoney = (n) => Number(n || 0).toLocaleString("vi-VN") + " đ";
   const formatDate = (d) => new Date(d).toLocaleString('vi-VN');
 
-  return (
-    <div className="warehouse-page animate-fade-in">
-        {/* Header */}
-        <header className="warehouse-header">
-            <div className="header-left">
-                <BackButton fallbackPath="/my-warehouse" label="Quay lại Kho" className="mb-2" />
-                <h1>Lịch sử giao dịch 📜</h1>
-                <p>Theo dõi các đơn hàng đã mua và đã bán</p>
-            </div>
-            <div className="flex gap-2">
-                <button 
-                    className={`btn-tab ${activeTab === 'bought' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('bought')}
-                >
-                    Đã mua
-                </button>
-                <button 
-                    className={`btn-tab ${activeTab === 'sold' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('sold')}
-                >
-                    Đã bán
-                </button>
-            </div>
-        </header>
+    const displayedItems = items.filter(item => {
+        if (filterType === 'all') return true;
+        return item.type === filterType;
+    });
 
-        {/* Main Content */}
-        <div className="warehouse-main">
-            {loading ? (
-                 <div className="flex justify-center items-center h-64">
-                    <span className="loading loading-spinner loading-lg text-primary"></span>
-                 </div>
-            ) : items.length === 0 ? (
-                <div className="empty-state-container">
-                    <div className="empty-state">
-                        <div className="empty-icon">{activeTab === 'bought' ? '🛒' : '💰'}</div>
-                        <h2>Chưa có giao dịch nào</h2>
-                        <p>
-                            {activeTab === 'bought' 
-                                ? "Bạn chưa mua món hàng nào." 
-                                : "Bạn chưa bán được món hàng nào."}
-                        </p>
+    return (
+        <div className="warehouse-page animate-fade-in">
+            {/* Header */}
+            <header className="warehouse-header">
+                <div className="header-left">
+                    <BackButton fallbackPath="/my-warehouse" label="Quay lại Kho" className="mb-2" />
+                    <h1>Lịch sử giao dịch 📜</h1>
+                    <p>Theo dõi các đơn hàng đã mua và đã bán</p>
+                </div>
+                <div className="flex flex-col md:flex-row gap-4 items-end">
+                    <div className="bg-slate-800/10 p-1 rounded-lg border border-black/5 flex">
+                        <button 
+                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${filterType === 'all' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+                            onClick={() => setFilterType('all')}
+                        >
+                            Tất cả
+                        </button>
+                        <button 
+                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${filterType === 'digital' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+                            onClick={() => setFilterType('digital')}
+                        >
+                            Sản phẩm số (Key)
+                        </button>
+                        <button 
+                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${filterType === 'physical' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
+                            onClick={() => setFilterType('physical')}
+                        >
+                            Sản phẩm vật lý
+                        </button>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <button 
+                            className={`btn-tab bought ${activeTab === 'bought' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('bought')}
+                        >
+                            Đã mua
+                        </button>
+                        <button 
+                            className={`btn-tab sold ${activeTab === 'sold' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('sold')}
+                        >
+                            Đã bán
+                        </button>
                     </div>
                 </div>
-            ) : (
-                <div className="overflow-x-auto">
-                    <table className="table w-full text-slate-700">
-                        <thead>
-                            <tr className="border-b border-black/5 text-slate-500 uppercase text-xs font-bold bg-white/30">
-                                <th>Thời gian</th>
-                                <th>Sản phẩm</th>
-                                <th className="hidden md:table-cell">Nhà</th>
-                                <th className="hidden md:table-cell">{activeTab === 'bought' ? 'Người bán' : 'Người mua'}</th>
-                                <th>Số lượng</th>
-                                <th>Đơn giá</th>
-                                <th>Tổng tiền</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {items.map((item, idx) => {
-                                if (!item) return null;
-                                return (
-                                <tr key={item.id || idx} className="hover:bg-white/40 border-b border-black/5 transition-colors">
+            </header>
+
+            {/* Main Content */}
+            <div className="warehouse-main">
+                {loading ? (
+                    <div className="flex justify-center items-center h-64">
+                        <span className="loading loading-spinner loading-lg text-primary"></span>
+                    </div>
+                ) : displayedItems.length === 0 ? (
+                    <div className="empty-state-container">
+                        <div className="empty-state">
+                            <div className="empty-icon">{activeTab === 'bought' ? '🛒' : '💰'}</div>
+                            <h2>Chưa có giao dịch nào</h2>
+                            <p>
+                                {activeTab === 'bought' 
+                                    ? "Bạn chưa mua món hàng nào." 
+                                    : "Bạn chưa bán được món hàng nào."}
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="table w-full text-slate-700">
+                            <thead>
+                                <tr className="border-b border-black/5 text-slate-500 uppercase text-xs font-bold bg-white/30">
+                                    <th>Thời gian</th>
+                                    <th>Sản phẩm</th>
+                                    <th className="hidden md:table-cell">Nhà</th>
+                                    <th className="hidden md:table-cell">{activeTab === 'bought' ? 'Người bán' : 'Người mua'}</th>
+                                    <th>Số lượng</th>
+                                    <th>Đơn giá</th>
+                                    <th>Tổng tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {displayedItems.map((item, idx) => {
+                                    if (!item) return null;
+                                    return (
+                                    <tr key={item.id || idx} className="hover:bg-white/40 border-b border-black/5 transition-colors">
                                     <td className="text-[11px] leading-tight">
                                         <div className="font-bold text-slate-700">{new Date(item.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
                                         <div className="text-slate-400 font-mono">{new Date(item.created_at).toLocaleDateString('vi-VN')}</div>
@@ -111,8 +151,12 @@ export function UserHistory() {
                                             <div className="flex flex-col">
                                                 <span className="font-bold">{item.product_name || "Sản phẩm không tên"}</span>
                                                 {item.description && (
-                                                    <span className={`text-[10px] italic ${item.description.includes('Hoàn tiền') ? 'text-emerald-600' : 'text-slate-500'}`}>
-                                                        {item.description}
+                                                    <span className={`text-[10px] italic px-1.5 py-0.5 rounded ${
+                                                        item.type === 'digital' ? 'bg-indigo-500/10 text-indigo-400 font-mono border border-indigo-500/20' : 
+                                                        item.description.includes('Hoàn tiền') ? 'bg-emerald-500/10 text-emerald-600' : 
+                                                        'text-slate-500'
+                                                    }`}>
+                                                        {item.type === 'digital' ? `🔑 Key: ${item.description}` : item.description}
                                                     </span>
                                                 )}
                                             </div>
@@ -159,10 +203,18 @@ export function UserHistory() {
                 box-shadow: 0 4px 12px rgba(90, 138, 158, 0.15);
             }
             .btn-tab.active {
-                background: var(--primary-custom);
                 color: white;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            }
+            .btn-tab.bought.active {
+                background: var(--primary-custom);
                 border-color: var(--primary-custom);
                 box-shadow: 0 4px 10px rgba(117, 165, 184, 0.3);
+            }
+            .btn-tab.sold.active {
+                background: linear-gradient(135deg, #10b981, #059669);
+                border-color: #10b981;
+                box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
             }
         `}</style>
     </div>

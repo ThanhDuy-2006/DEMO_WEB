@@ -203,7 +203,7 @@ export const getMembers = async (req, res) => {
 
 export const updateMemberStatus = async (req, res) => {
     const { id, userId } = req.params; // house id, user id
-    const { status } = req.body; // member, rejected
+    const { status } = req.body; // member, rejected, blocked
     const ownerId = req.user.id; // Keep this for owner check if needed
 
     try {
@@ -267,6 +267,14 @@ export const updateMemberStatus = async (req, res) => {
             });
 
             return res.json({ message: "Approved" });
+        }
+
+        if (status === 'blocked') {
+            await pool.execute(
+                `UPDATE user_houses SET role = 'blocked' WHERE house_id = ? AND user_id = ?`,
+                [id, userId]
+            );
+            return res.json({ message: "Member blocked successfully" });
         }
 
         res.status(400).json({ error: "Invalid status" });

@@ -18,9 +18,8 @@
   border-bottom: 1px solid rgba(255,255,255,0.08);
   background: rgba(17, 26, 51, 0.8);
   backdrop-filter: blur(10px);
-  position: sticky;
-  top: 0;
-  z-index: 50;
+  position: relative;
+  z-index: 10;
 }
 
 .header-left h1 {
@@ -208,6 +207,7 @@
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  line-clamp: 2;
   overflow: hidden;
 }
 
@@ -492,4 +492,215 @@
   .action-btn {
       padding: 6px;
   }
+}
+
+/* COMPACT VIEW SUPPORT */
+.product-grid.compact-view {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.warehouse-card.compact-card {
+  min-height: 140px;
+  aspect-ratio: auto;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.warehouse-card.compact-card:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: #6366f1;
+}
+
+.compact-card-inner {
+  padding: 16px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.compact-close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  border: none;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.compact-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.compact-card-top {
+  padding-right: 20px;
+}
+
+.compact-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compact-card-mid {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.compact-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.compact-qty {
+  font-size: 12px;
+  font-weight: 800;
+  color: #818cf8;
+  font-family: monospace;
+}
+
+.compact-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.compact-select-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #6366f1;
+  letter-spacing: 0.05em;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+.compact-checkbox-wrapper {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+}
+
+.compact-checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: transparent;
+  transition: all 0.2s;
+}
+
+.compact-checkbox.checked {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: white;
+}
+
+/* WAREHOUSE TABLE STYLES (MATCHES MYPRODUCTS) */
+.warehouse-table-container {
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    overflow-x: auto;
+}
+
+.warehouse-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.warehouse-table th {
+    background: rgba(15, 23, 42, 0.8);
+    color: #94a3b8;
+    text-align: left;
+    padding: 12px 16px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.warehouse-table td {
+    padding: 12px 16px;
+    color: #f1f5f9;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    vertical-align: middle;
+}
+
+.warehouse-table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.warehouse-table tr.selected {
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.warehouse-table .image-col-header, 
+.warehouse-table .image-cell-content {
+    width: 60px;
+    text-align: center;
+}
+
+.warehouse-table .table-img-wrapper {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+}
+
+.warehouse-table .table-img-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.warehouse-table .img-placeholder {
+    font-size: 16px;
+    opacity: 0.5;
+}
+
+.checkbox-primary {
+    --chkbg: #6366f1;
+    --chkfg: white;
 }

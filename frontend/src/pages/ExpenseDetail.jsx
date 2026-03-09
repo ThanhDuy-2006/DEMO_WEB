@@ -11,6 +11,8 @@ export function ExpenseDetail({ id, onClose, onUpdate }) {
     const [loading, setLoading] = useState(true);
     const [categories, setCategories] = useState([]);
     const [editingCat, setEditingCat] = useState(false);
+    const [editingNote, setEditingNote] = useState(false);
+    const [tempNote, setTempNote] = useState("");
 
     useEffect(() => {
         loadDetail();
@@ -59,6 +61,18 @@ export function ExpenseDetail({ id, onClose, onUpdate }) {
         }
     };
 
+    const handleUpdateNote = async () => {
+        try {
+            await expenses.updateCategory(id, { note: tempNote });
+            setEditingNote(false);
+            loadDetail();
+            onUpdate();
+            toast.success("Đã cập nhật ghi chú");
+        } catch (e) {
+            toast.error("Lỗi cập nhật ghi chú");
+        }
+    };
+
     if (loading) return <div className="p-8 text-center text-slate-400">Đang tải...</div>;
     if (!detail) return <div className="p-8 text-center text-red-400">Không tìm thấy đơn hàng</div>;
 
@@ -93,7 +107,23 @@ export function ExpenseDetail({ id, onClose, onUpdate }) {
                     </div>
                     <div className="detail-row">
                         <span className="detail-label">Ghi chú</span>
-                        <span className="detail-value">{detail.note || 'Không có'}</span>
+                        <span className="detail-value flex-1 ml-4 justify-end">
+                            {editingNote ? (
+                                <div className="flex gap-2 w-full justify-end">
+                                    <input 
+                                        type="text" 
+                                        className="bg-slate-700 text-white px-3 py-1.5 rounded-lg w-full text-sm outline-none border border-slate-600 focus:border-blue-500" 
+                                        value={tempNote} 
+                                        onChange={e => setTempNote(e.target.value)}
+                                        autoFocus
+                                    />
+                                    <button className="text-white bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded-lg text-xs font-bold transition-colors" onClick={handleUpdateNote}>Lưu</button>
+                                    <button className="text-white bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded-lg text-xs transition-colors" onClick={() => setEditingNote(false)}>Huỷ</button>
+                                </div>
+                            ) : (
+                                <span className="text-right">{detail.note || 'Không có'}</span>
+                            )}
+                        </span>
                     </div>
                     {detail.image_url && (
                         <div className="mt-4">
@@ -145,7 +175,10 @@ export function ExpenseDetail({ id, onClose, onUpdate }) {
 
                 {/* Actions */}
                 <div className="action-grid">
-                     <button className="btn-action" onClick={() => toast.info("Tính năng sửa ghi chú đang phát triển")}>
+                     <button className="btn-action" onClick={() => {
+                         setTempNote(detail.note || '');
+                         setEditingNote(true);
+                     }}>
                         ✏️ Sửa ghi chú
                      </button>
                      <button className="btn-action btn-delete" onClick={handleDeleteClick}>

@@ -9,15 +9,19 @@
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
+    "axios": "^1.13.6",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.1",
     "cookie": "^1.1.1",
     "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
+    "cors": "^2.8.6",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "express-mongo-sanitize": "^2.2.0",
     "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.1",
     "mssql": "^12.2.0",
     "multer": "^2.0.2",
     "mysql2": "^3.16.3",
@@ -26,11 +30,16 @@
     "passport": "^0.7.0",
     "passport-github2": "^0.1.12",
     "passport-google-oauth20": "^2.0.0",
+    "qs": "^6.15.0",
     "redis": "^5.10.0",
+    "request": "^2.88.2",
+    "request-promise-native": "^1.0.9",
     "response-time": "^2.3.4",
     "socket.io": "^4.8.3",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "xss-clean": "^0.1.4",
+    "zingmp3-api-full": "^1.0.14"
   }
 }

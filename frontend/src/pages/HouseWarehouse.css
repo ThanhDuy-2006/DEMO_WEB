@@ -80,7 +80,6 @@
   background: #1e293b;
   color: #818cf8;
   border: 1px solid #334155;
-  margin-right: 6px;
 }
 
 .btn-table-edit:hover {
@@ -102,6 +101,22 @@
   color: white;
   border: none;
   font-weight: bold;
+}
+.btn-table-cart {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  font-weight: bold;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-table-buy:disabled,
+.btn-table-cart:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(80%);
 }
 
 .table-footer {

@@ -12,7 +12,11 @@ import {
     Coins, 
     Ban,
     Check,
-    Edit
+    Edit,
+    Image as ImageIcon,
+    LayoutGrid,
+    List,
+    Eye
 } from "lucide-react";
 import "./UserWarehouse.css";
 import BackButton from "../components/common/BackButton";
@@ -27,9 +31,11 @@ export function UserWarehouse() {
   
   // Search
   const [searchTerm, setSearchTerm] = useState("");
-  const [isImagesHidden, setIsImagesHidden] = useState(true);
+  const [showImages, setShowImages] = useState(false);
+  const [filterStatus, setFilterStatus] = useState("all"); // 'all', 'selling', 'warehouse'
 
   // Modals
+  const [viewItem, setViewItem] = useState(null);
   const [resellItem, setResellItem] = useState(null);
   const [editItem, setEditItem] = useState(null);
   
@@ -223,12 +229,17 @@ export function UserWarehouse() {
       }
   };
 
-  const filteredItems = items.filter(item => 
-      item && (
-          (item.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-  );
+  const filteredItems = items.filter(item => {
+      if (!item) return false;
+      const matchesSearch = (item.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesStatus = filterStatus === 'all' || 
+                           (filterStatus === 'selling' && item.is_selling === 1) ||
+                           (filterStatus === 'warehouse' && item.is_selling === 0);
+      
+      return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="warehouse-page animate-fade-in">
@@ -262,8 +273,8 @@ export function UserWarehouse() {
 
         {/* Main */}
         <div className="warehouse-main">
-            <div className="mb-8 flex items-center gap-6">
-                <div className="w-full max-w-xl">
+            <div className="mb-8 flex flex-col lg:flex-row items-stretch lg:items-center gap-4 lg:gap-6">
+                <div className="w-full lg:w-auto lg:max-w-xl flex-1">
                     <SciFiSearch 
                         placeholder="Tìm kiếm vật phẩm trong kho..." 
                         value={searchTerm} 
@@ -272,61 +283,34 @@ export function UserWarehouse() {
                     />
                 </div>
 
-                {/* Holo Toggle */}
-                <div className="toggle-container scale-75 origin-left">
-                  <div className="toggle-wrap">
-                    <input 
-                        className="toggle-input" 
-                        id="holo-toggle-warehouse" 
-                        type="checkbox" 
-                        checked={isImagesHidden}
-                        onChange={(e) => setIsImagesHidden(e.target.checked)}
-                    />
-                    <label className="toggle-track" htmlFor="holo-toggle-warehouse">
-                      <div className="track-lines">
-                        <div className="track-line"></div>
-                      </div>
-
-                      <div className="toggle-thumb">
-                        <div className="thumb-core"></div>
-                        <div className="thumb-inner"></div>
-                        <div className="thumb-scan"></div>
-                        <div className="thumb-particles">
-                          <div className="thumb-particle"></div>
-                          <div className="thumb-particle"></div>
-                          <div className="thumb-particle"></div>
-                          <div className="thumb-particle"></div>
-                          <div className="thumb-particle"></div>
-                        </div>
-                      </div>
-
-                      <div className="toggle-data">
-                        <div className="data-text off" style={{fontSize: '10px'}}>ẢNH: BẬT</div>
-                        <div className="data-text on" style={{fontSize: '10px'}}>ẢNH: TẮT</div>
-                        <div className="status-indicator off"></div>
-                        <div className="status-indicator on"></div>
-                      </div>
-
-                      <div className="energy-rings">
-                        <div className="energy-ring"></div>
-                        <div className="energy-ring"></div>
-                        <div className="energy-ring"></div>
-                      </div>
-
-                      <div className="interface-lines">
-                        <div className="interface-line"></div>
-                        <div className="interface-line"></div>
-                        <div className="interface-line"></div>
-                        <div className="interface-line"></div>
-                        <div className="interface-line"></div>
-                        <div className="interface-line"></div>
-                      </div>
-
-                      <div className="toggle-reflection"></div>
-                      <div className="holo-glow"></div>
-                    </label>
-                  </div>
+                <div className="flex w-full lg:w-auto bg-slate-800/50 p-1 rounded-xl border border-white/5">
+                    <button 
+                        onClick={() => setFilterStatus("all")}
+                        className={`flex-1 lg:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterStatus === 'all' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        Tất cả
+                    </button>
+                    <button 
+                        onClick={() => setFilterStatus("selling")}
+                        className={`flex-1 lg:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterStatus === 'selling' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        Đang bán
+                    </button>
+                    <button 
+                        onClick={() => setFilterStatus("warehouse")}
+                        className={`flex-1 lg:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${filterStatus === 'warehouse' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/40' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        Trong kho
+                    </button>
                 </div>
+
+                    <button 
+                        className={`flex justify-center lg:justify-start items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all border ${showImages ? 'bg-blue-600/20 border-blue-500/50 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-white/5'}`}
+                        onClick={() => setShowImages(!showImages)}
+                    >
+                        <ImageIcon size={16} />
+                        {showImages ? 'Ẩn Ảnh' : 'Hiện Ảnh'}
+                    </button>
             </div>
 
             {loading ? (
@@ -357,89 +341,85 @@ export function UserWarehouse() {
                     <p>Không tìm thấy sản phẩm nào khớp với từ khóa.</p>
                  </div>
             ) : (
-                // Product Grid
-                <div className={`product-grid ${isImagesHidden ? 'compact-view' : ''}`}>
-                    {filteredItems.map(item => (
-                        <div 
-                            key={item.id} 
-                            className={`warehouse-card group ${isSelectMode ? 'is-selecting' : ''} ${selectedIds.includes(item.id) ? 'is-selected' : ''} ${isImagesHidden ? 'compact-card' : ''}`}
-                            onClick={() => isSelectMode && handleToggleSelect(item.id)}
-                        >
-                            {/* Standard View OR Compact View Content */}
-                            {!isImagesHidden ? (
-                                <>
-                                    {isSelectMode && (
-                                        <div className="card-checkbox-wrapper">
-                                            <div className={`card-checkbox ${selectedIds.includes(item.id) ? 'checked' : ''}`}>
-                                                <span className="check-icon">✓</span>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="card-img-wrapper">
-                                        {item.image_url ? (
-                                            <img src={getImageUrl(item.image_url)} className="card-img" onError={(e) => e.target.style.display = 'none'} />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-4xl bg-white/50 text-slate-400">🎁</div>
+                <>
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block warehouse-table-container scrollbar-custom responsive-table-wrapper">
+                        <table className="warehouse-table min-w-[700px]">
+                            <thead>
+                                <tr>
+                                    {isSelectMode && <th className="w-10"></th>}
+                                    {showImages && <th className="image-col-header">Ảnh</th>}
+                                    <th>Sản phẩm</th>
+                                    <th>Nhà</th>
+                                    <th>Giá</th>
+                                    <th>Số lượng</th>
+                                    <th>Trạng thái</th>
+                                    <th className="text-right">Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredItems.map(item => (
+                                    <tr 
+                                        key={item.id} 
+                                        className={`${selectedIds.includes(item.id) ? 'selected' : ''}`}
+                                        onClick={() => isSelectMode && handleToggleSelect(item.id)}
+                                    >
+                                        {isSelectMode && (
+                                            <td>
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={selectedIds.includes(item.id)}
+                                                    readOnly
+                                                    className="checkbox checkbox-primary checkbox-sm border-white/20"
+                                                />
+                                            </td>
                                         )}
-                                    </div>
-                                    
-                                    <div className="card-content">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <h3 className="card-title text-slate-800" title={item.name}>{item.name}</h3>
-                                            {item.is_selling === 1 && (
-                                                <span className="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded border border-emerald-500/20">
-                                                    Đang bán
-                                                </span>
-                                            )}
-                                        </div>
-                                        
-                                        {/* Prominent Seller Name */}
-                                        <p className="text-[11px] font-bold text-blue-500 mb-2 truncate" title={`Người bán: ${item.seller_name || 'Hệ thống'}`}>
-                                            Người bán: {item.seller_name || 'Hệ thống'}
-                                        </p>
-
-                                        <p className="card-desc">{item.description}</p>
-                                        
-                                        <div className="card-badges">
-                                            <span className="card-badge primary">x{item.quantity}</span>
-                                        </div>
-
-                                        <div className="card-actions !border-t-0 !pt-3 flex justify-center gap-4">
+                                        {showImages && (
+                                            <td className="image-cell-content">
+                                                <div className="table-img-wrapper">
+                                                    {item.image_url ? (
+                                                        <img src={getImageUrl(item.image_url)} alt="" onError={(e) => e.target.style.display = 'none'} />
+                                                    ) : (
+                                                        <div className="img-placeholder">📦</div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        )}
+                                        <td>
+                                            <div className="font-bold">{item.name}</div>
+                                            <div className="text-[10px] text-blue-500 opacity-80">{item.seller_name || 'Hệ thống'}</div>
+                                        </td>
+                                        <td className="text-slate-400 text-xs">{item.house_name || 'Không xác định'}</td>
+                                        <td className="text-amber-400 font-bold">{item.price ? Number(item.price).toLocaleString('vi-VN') + 'đ' : 'Miễn phí'}</td>
+                                        <td className="font-mono">{item.quantity}</td>
+                                        <td>
+                                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                                                item.is_selling === 1 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
+                                            }`}>
+                                                {item.is_selling === 1 ? 'Đang bán' : 'Trong kho'}
+                                            </span>
+                                        </td>
+                                        <td className="text-right">
                                             {!isSelectMode && (
-                                                <>
+                                                <div className="flex justify-end gap-2">
                                                     <button 
-                                                        onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} 
-                                                        className="Btn btn-delete"
-                                                        title="Xóa vật phẩm"
+                                                        className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"
+                                                        onClick={(e) => { e.stopPropagation(); setViewItem(item); }}
+                                                        title="Xem chi tiết"
                                                     >
-                                                        <span className="svgIcon"><Trash2 size={18} /></span>
-                                                        <span className="text">Xóa</span>
+                                                        <Eye size={16} />
                                                     </button>
-                                                    <button 
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setEditItem(item);
-                                                            setEditQty(item.quantity);
-                                                        }}
-                                                        className="Btn btn-scifi-custom"
-                                                        title="Sửa số lượng"
-                                                    >
-                                                        <span className="svgIcon"><Edit3 size={18} /></span>
-                                                        <span className="text">Sửa</span>
-                                                    </button>
-                                                    
                                                     {item.is_selling === 1 ? (
                                                         <button 
+                                                            className="p-2 hover:bg-yellow-500/10 rounded-lg text-slate-400 hover:text-yellow-400 transition-colors"
                                                             onClick={(e) => { e.stopPropagation(); handleCancelSell(item); }}
-                                                            className="Btn btn-scifi-custom !text-yellow-500"
-                                                            title="Gỡ khỏi chợ"
+                                                            title="Hủy bán"
                                                         >
-                                                            <span className="svgIcon"><Ban size={18} /></span>
-                                                            <span className="text">Hủy bán</span>
+                                                            <Ban size={16} />
                                                         </button>
                                                     ) : (
                                                         <button 
+                                                            className="p-2 hover:bg-emerald-500/10 rounded-lg text-slate-400 hover:text-emerald-400 transition-colors"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setResellItem(item);
@@ -452,102 +432,143 @@ export function UserWarehouse() {
                                                                 if (defaultHouse?.type === 'food') setCalcMethod("food");
                                                                 else setCalcMethod("normal");
                                                             }}
-                                                            className="Btn btn-scifi-custom !text-emerald-400"
                                                             title="Đăng bán lại"
                                                         >
-                                                            <span className="svgIcon"><Coins size={18} /></span>
-                                                            <span className="text">Bán lại</span>
+                                                            <Coins size={16} />
                                                         </button>
                                                     )}
-                                                </>
-                                            )}
-                                            {isSelectMode && (
-                                                <div className="text-xs font-medium text-center w-full py-1 text-primary animate-pulse">
-                                                    {selectedIds.includes(item.id) ? '✅ Đã chọn' : 'Click để chọn'}
+                                                    <button 
+                                                        className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditItem(item);
+                                                            setEditQty(item.quantity);
+                                                        }}
+                                                        title="Sửa số lượng"
+                                                    >
+                                                        <Edit3 size={16} />
+                                                    </button>
+                                                    <button 
+                                                        className="p-2 hover:bg-red-500/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
+                                                        onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                                                        title="Xóa vật phẩm"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
                                                 </div>
                                             )}
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="compact-card-inner">
-                                    {/* Delete Button (Corner Close) */}
-                                    {!isSelectMode && (
-                                        <button 
-                                            className="compact-close-btn" 
-                                            onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                                            title="Xóa"
-                                        >
-                                            ✕
-                                        </button>
-                                    )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
 
-                                    {/* Selection Checkbox */}
+                    {/* Mobile Card View */}
+                    <div className="md:hidden flex flex-col gap-4 animate-fade-in-up">
+                        {filteredItems.map(item => (
+                            <div 
+                                key={item.id} 
+                                className={`flex flex-col p-4 rounded-2xl bg-[#111a33]/80 border backdrop-blur-sm transition-all shadow-lg ${selectedIds.includes(item.id) ? 'border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)] ring-1 ring-indigo-500' : 'border-white/5'} ${isSelectMode ? 'cursor-pointer active:scale-95' : ''}`}
+                                onClick={() => isSelectMode && handleToggleSelect(item.id)}
+                            >
+                                <div className="flex gap-4">
                                     {isSelectMode && (
-                                        <div className="compact-checkbox-wrapper">
-                                            <div className={`compact-checkbox ${selectedIds.includes(item.id) ? 'checked' : ''}`}>
-                                                ✓
+                                        <div className="flex items-center justify-center pt-2">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={selectedIds.includes(item.id)}
+                                                readOnly
+                                                className="checkbox checkbox-primary checkbox-sm border-white/20"
+                                            />
+                                        </div>
+                                    )}
+                                    {showImages && (
+                                        <div className="w-16 h-16 shrink-0 rounded-xl bg-black/40 border border-white/5 flex items-center justify-center overflow-hidden">
+                                            {item.image_url ? (
+                                                <img src={getImageUrl(item.image_url)} alt="" className="w-full h-full object-cover" onError={(e) => e.target.style.display = 'none'} />
+                                            ) : (
+                                                <div className="text-2xl opacity-50">📦</div>
+                                            )}
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                        <div className="flex justify-between items-start gap-2 mb-1">
+                                            <h4 className="font-bold text-white text-base truncate pr-2">{item.name}</h4>
+                                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase shrink-0 ${item.is_selling === 1 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+                                                {item.is_selling === 1 ? 'Đang bán' : 'Trong kho'}
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-blue-400/80 mb-2 truncate">NSX: {item.seller_name || 'Hệ thống'}</p>
+                                        <div className="flex justify-between items-end mt-auto">
+                                            <div>
+                                                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Giá / SL</div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-amber-400 font-bold">{item.price ? Number(item.price).toLocaleString('vi-VN') + 'đ' : 'Miễn phí'}</span>
+                                                    <span className="text-slate-500 select-none">•</span>
+                                                    <span className="font-mono text-slate-300">x{item.quantity}</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    )}
-
-                                    <div className="compact-card-top">
-                                        <h3 className="compact-title">{item.name}</h3>
-                                        <p className="text-[9px] text-blue-500 font-bold leading-none mt-1 truncate">
-                                            {item.seller_name || 'Hệ thống'}
-                                        </p>
-                                    </div>
-
-                                    <div className="compact-card-mid">
-                                        <div className="compact-price">
-                                            {item.price ? item.price.toLocaleString('vi-VN') + 'đ' : 'Miễn phí'}
-                                        </div>
-                                        <div className="compact-qty">
-                                            x{item.quantity}
-                                        </div>
-                                    </div>
-
-                                    <div className="compact-card-bottom">
-                                        {!isSelectMode && (
-                                            item.is_selling === 1 ? (
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); handleCancelSell(item); }}
-                                                    className="Btn btn-scifi-custom !text-yellow-500 scale-90"
-                                                    title="Hủy bán"
-                                                >
-                                                    <span className="svgIcon"><Ban size={16} /></span>
-                                                    <span className="text">Hủy</span>
-                                                </button>
-                                            ) : (
-                                                <button 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setResellItem(item);
-                                                        setResellQty(1);
-                                                        setResellPrice("");
-                                                        setTotalCost("");
-                                                        setHouseSearchTerm(""); 
-                                                        setTargetHouse(houses[0]?.id || "");
-                                                    }}
-                                                    className="Btn btn-scifi-custom !text-emerald-400 scale-90"
-                                                    title="Bán lại"
-                                                >
-                                                    <span className="svgIcon"><Coins size={16} /></span>
-                                                    <span className="text">Bán</span>
-                                                </button>
-                                            )
-                                        )}
-                                        {isSelectMode && (
-                                             <div className="compact-select-label">
-                                                {selectedIds.includes(item.id) ? 'Đã chọn' : 'Chọn'}
-                                             </div>
-                                        )}
                                     </div>
                                 </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
+                                
+                                {!isSelectMode && (
+                                    <div className="flex items-center gap-2 mt-4 pt-4 border-t border-white/5 w-full">
+                                        <button 
+                                            className="flex-1 flex justify-center items-center py-2 rounded-lg bg-white/5 border border-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors active:scale-95 text-xs font-bold gap-1.5"
+                                            onClick={(e) => { e.stopPropagation(); setViewItem(item); }}
+                                        >
+                                            <Eye size={14} /> Chi tiết
+                                        </button>
+                                        {item.is_selling === 1 ? (
+                                            <button 
+                                                className="flex-1 flex justify-center items-center py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20 transition-colors active:scale-95 text-xs font-bold gap-1.5"
+                                                onClick={(e) => { e.stopPropagation(); handleCancelSell(item); }}
+                                            >
+                                                <Ban size={14} /> Hủy bán
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                className="flex-1 flex justify-center items-center py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 transition-colors active:scale-95 text-xs font-bold gap-1.5"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setResellItem(item);
+                                                    setResellQty(1);
+                                                    setResellPrice("");
+                                                    setTotalCost("");
+                                                    setHouseSearchTerm(""); 
+                                                    const defaultHouse = houses[0] || null;
+                                                    setTargetHouse(defaultHouse?.id || "");
+                                                    if (defaultHouse?.type === 'food') setCalcMethod("food");
+                                                    else setCalcMethod("normal");
+                                                }}
+                                            >
+                                                <Coins size={14} /> Bán lại
+                                            </button>
+                                        )}
+                                        <button 
+                                            className="w-10 flex justify-center items-center py-2 rounded-lg bg-white/5 border border-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors active:scale-95"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditItem(item);
+                                                setEditQty(item.quantity);
+                                            }}
+                                        >
+                                            <Edit3 size={14} />
+                                        </button>
+                                        <button 
+                                            className="w-10 flex justify-center items-center py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20 transition-colors active:scale-95"
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </>
             )}
         </div>
 
@@ -765,6 +786,100 @@ export function UserWarehouse() {
                             <button type="submit" className="btn btn-primary px-8">Lưu thay đổi</button>
                         </div>
                      </form>
+                </div>
+            </div>
+        )}
+
+        {/* View Details Modal */}
+        {viewItem && (
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => setViewItem(null)}>
+                <div 
+                    className="bg-[#111a33] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="relative aspect-[4/3] bg-black/50 flex items-center justify-center overflow-hidden">
+                        {viewItem.image_url ? (
+                            <img src={getImageUrl(viewItem.image_url)} alt={viewItem.name} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="text-6xl p-10 opacity-30">📦</div>
+                        )}
+                        <span className={`absolute top-4 right-4 px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg backdrop-blur-md border ${viewItem.is_selling === 1 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}>
+                            {viewItem.is_selling === 1 ? 'Đang bán' : 'Trong kho'}
+                        </span>
+                        
+                        <button 
+                            className="absolute top-4 left-4 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-md transition-colors"
+                            onClick={() => setViewItem(null)}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                    
+                    <div className="p-6">
+                        <div className="flex justify-between items-start mb-6 gap-4 border-b border-white/5 pb-4">
+                            <div>
+                                <h3 className="text-xl font-bold text-white leading-tight mb-1">{viewItem.name}</h3>
+                                <p className="text-slate-400 text-sm flex items-center gap-1">
+                                    <ShoppingCart size={14} className="opacity-70" /> {viewItem.house_name || 'Không xác định'}
+                                </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                                <div className="text-xl font-bold text-amber-400">
+                                    {viewItem.price ? Number(viewItem.price).toLocaleString('vi-VN') + 'đ' : 'Miễn phí'}
+                                </div>
+                                <div className="text-slate-400 text-sm mt-1 bg-white/5 inline-block px-2 py-0.5 rounded-md">
+                                    Kho còn: <span className="font-bold text-white">{viewItem.quantity}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mb-4 space-y-4">
+                            <div>
+                                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1">Người bán / Cung cấp</p>
+                                <div className="text-slate-300 font-medium">
+                                    {viewItem.seller_name || 'Hệ thống'}
+                                </div>
+                            </div>
+
+                            {viewItem.description && (
+                                <div>
+                                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1">Mô tả sản phẩm</p>
+                                    <div className="text-slate-300 text-sm leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5 max-h-32 overflow-y-auto mt-1">
+                                        {viewItem.description}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div className="flex gap-3 mt-6 pt-4 border-t border-white/5">
+                             <button
+                                className="flex-1 py-3 text-sm font-bold text-white bg-white/5 hover:bg-white/10 rounded-xl transition-colors border border-white/10"
+                                onClick={() => navigate(`/houses/${viewItem.house_id}`)}
+                             >
+                                 Đi tới Nhà
+                             </button>
+                             {viewItem.is_selling === 0 && (
+                                 <button
+                                    className="flex-1 py-3 text-sm font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 rounded-xl transition-colors shrink-0 flex items-center justify-center gap-2"
+                                    onClick={() => {
+                                        const item = viewItem;
+                                        setViewItem(null);
+                                        setResellItem(item);
+                                        setResellQty(1);
+                                        setResellPrice("");
+                                        setTotalCost("");
+                                        setHouseSearchTerm(""); 
+                                        const defaultHouse = houses[0] || null;
+                                        setTargetHouse(defaultHouse?.id || "");
+                                        if (defaultHouse?.type === 'food') setCalcMethod("food");
+                                        else setCalcMethod("normal");
+                                    }}
+                                 >
+                                     <Coins size={16} /> Đăng Bán
+                                 </button>
+                             )}
+                        </div>
+                    </div>
                 </div>
             </div>
         )}

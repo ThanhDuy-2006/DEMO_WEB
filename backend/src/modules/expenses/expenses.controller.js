@@ -34,11 +34,6 @@ export const syncTransactions = async (userId) => {
             ORDER BY t.id ASC
         `, [userId, userId, lastId]);
 
-        if (newTxs.length === 0) {
-            await connection.commit();
-            return { synced: 0 };
-        }
-
         // 3. Map categories by Name AND Type to avoid collision (e.g. 'Khác' for Expense vs Income)
         const [cats] = await connection.query(`SELECT id, name, type FROM expense_categories WHERE is_default = TRUE`);
         const catMap = {};
@@ -47,9 +42,10 @@ export const syncTransactions = async (userId) => {
         });
 
         const records = [];
-        for (const tx of newTxs) {
-            const amount = Math.abs(parseFloat(tx.total_price || 0));
-            if (amount === 0) continue;
+        if (newTxs.length > 0) {
+            for (const tx of newTxs) {
+                const amount = Math.abs(parseFloat(tx.total_price || 0));
+                if (amount === 0) continue;
 
             let type = 'EXPENSE';
             let catId = null;
@@ -88,6 +84,7 @@ export const syncTransactions = async (userId) => {
                 tx.created_at, note, null, tx.house_id, 
                 'HOUSE_TX', tx.id
             ]);
+            }
         }
 
         if (records.length > 0) {
@@ -98,8 +95,75 @@ export const syncTransactions = async (userId) => {
             `, [records]);
         }
 
+        // ==========================================
+        // SYNC WALLET DEPOSITS AS INCOME
+        // ==========================================
+        const [lastSyncWallet] = await connection.query(
+            `SELECT MAX(source_id) as last_id FROM financial_records 
+             WHERE user_id = ? AND source_type = 'WALLET'`, 
+            [userId]
+        );
+        const lastWalletId = lastSyncWallet[0].last_id || 0;
+
+        const [newWallets] = await connection.query(`
+            SELECT id, amount, created_at, description 
+            FROM wallet_transactions 
+            WHERE user_id = ? AND type = 'DEPOSIT' AND id > ?
+            ORDER BY id ASC
+        `, [userId, lastWalletId]);
+
+        let walletSyncCount = 0;
+        if (newWallets.length > 0) {
+            const walletRecords = newWallets.map(w => [
+                userId, Math.abs(parseFloat(w.amount)), 'INCOME', catMap['Khác_INCOME'] || null,
+                w.created_at, w.description || 'Nạp tiền vào ví', null, null,
+                'WALLET', w.id
+            ]);
+
+            await connection.query(`
+                INSERT IGNORE INTO financial_records 
+                (user_id, amount, type, category_id, transaction_date, note, image_url, house_id, source_type, source_id)
+                VALUES ?
+            `, [walletRecords]);
+            walletSyncCount = newWallets.length;
+        }
+
+        // ==========================================
+        // SYNC DIGITAL ORDERS AS EXPENSE
+        // ==========================================
+        const [lastSyncDigital] = await connection.query(
+            `SELECT MAX(source_id) as last_id FROM financial_records 
+             WHERE user_id = ? AND source_type = 'ORDER'`, 
+            [userId]
+        );
+        const lastDigitalId = lastSyncDigital[0].last_id || 0;
+
+        const [newDigitals] = await connection.query(`
+            SELECT do.id, do.price, do.created_at, dp.name as prod_name
+            FROM digital_orders do
+            JOIN digital_products dp ON dp.id = do.product_id
+            WHERE do.user_id = ? AND do.status = 'activated' AND do.id > ?
+            ORDER BY do.id ASC
+        `, [userId, lastDigitalId]);
+
+        let digitalSyncCount = 0;
+        if (newDigitals.length > 0) {
+            const digitalRecords = newDigitals.map(d => [
+                userId, parseFloat(d.price), 'EXPENSE', catMap['Mua sắm_EXPENSE'] || catMap['Khác_EXPENSE'],
+                d.created_at, `Mua SP số: ${d.prod_name}`, null, null,
+                'ORDER', d.id
+            ]);
+
+            await connection.query(`
+                INSERT IGNORE INTO financial_records 
+                (user_id, amount, type, category_id, transaction_date, note, image_url, house_id, source_type, source_id)
+                VALUES ?
+            `, [digitalRecords]);
+            digitalSyncCount = newDigitals.length;
+        }
+
         await connection.commit();
-        return { synced: records.length };
+        return { synced: records.length + walletSyncCount + digitalSyncCount };
     } catch (e) {
         if (connection) await connection.rollback();
         console.error("Sync failed:", e);
@@ -163,7 +227,7 @@ export const getExpenses = async (req, res) => {
 
 export const createExpense = async (req, res) => {
     const userId = req.user.id;
-    const { amount, type, category_id, transaction_date, note, image_url } = req.body;
+    const { amount, type, category_id, transaction_date, note, image_url, house_id } = req.body;
 
     if (!amount || !type || !transaction_date) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -173,8 +237,8 @@ export const createExpense = async (req, res) => {
         const pool = await connectDB();
         const [result] = await pool.execute(`
             INSERT INTO financial_records 
-            (user_id, amount, type, category_id, transaction_date, note, image_url, source_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'MANUAL')
+            (user_id, amount, type, category_id, transaction_date, note, image_url, house_id, source_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'MANUAL')
         `, [
             userId, 
             amount, 
@@ -182,7 +246,8 @@ export const createExpense = async (req, res) => {
             category_id || null, 
             transaction_date, 
             note || '', 
-            image_url || null 
+            image_url || null,
+            house_id || null
         ]);
 
         res.json({ success: true, id: result.insertId });
@@ -233,6 +298,27 @@ export const getExpenseDetail = async (req, res) => {
 export const getCategories = async (req, res) => {
     try {
         const pool = await connectDB();
+        
+        // Auto-seed if missing
+        const [check] = await pool.execute("SELECT COUNT(*) as count FROM expense_categories WHERE is_default = TRUE");
+        if (check[0].count === 0) {
+            const defaults = [
+                { name: 'Ăn uống', type: 'EXPENSE', icon: '🍜', color: '#FF6B6B' },
+                { name: 'Mua sắm', type: 'EXPENSE', icon: '🛍️', color: '#4ECDC4' },
+                { name: 'Sinh hoạt', type: 'EXPENSE', icon: '🏠', color: '#45B7D1' },
+                { name: 'Di chuyển', type: 'EXPENSE', icon: '🚗', color: '#96CEB4' },
+                { name: 'Giải trí', type: 'EXPENSE', icon: '🎮', color: '#FFEEAD' },
+                { name: 'Sức khỏe', type: 'EXPENSE', icon: '🏥', color: '#D4A5A5' },
+                { name: 'Khác', type: 'EXPENSE', icon: '📦', color: '#9E9E9E' },
+                { name: 'Lương', type: 'INCOME', icon: '💰', color: '#2ECC71' },
+                { name: 'Đầu tư', type: 'INCOME', icon: '📈', color: '#27AE60' },
+                { name: 'Thưởng', type: 'INCOME', icon: '🎁', color: '#F1C40F' },
+                { name: 'Khác', type: 'INCOME', icon: '📦', color: '#BDC3C7' }
+            ];
+            const values = defaults.map(d => `(NULL, '${d.name}', '${d.type}', '${d.icon}', '${d.color}', TRUE)`);
+            await pool.query(`INSERT INTO expense_categories (user_id, name, type, icon, color, is_default) VALUES ${values.join(',')}`);
+        }
+
         const [rows] = await pool.execute(`
             SELECT * FROM expense_categories 
             WHERE user_id = ? OR is_default = TRUE
@@ -241,6 +327,29 @@ export const getCategories = async (req, res) => {
         res.json(rows);
     } catch (e) {
         res.status(500).json({ error: "Failed to fetch categories" });
+    }
+};
+
+export const createCategory = async (req, res) => {
+    const userId = req.user.id;
+    const { name, type, icon, color } = req.body;
+
+    if (!name || !type) {
+        return res.status(400).json({ error: "Name and type are required" });
+    }
+
+    try {
+        const pool = await connectDB();
+        const [result] = await pool.execute(`
+            INSERT INTO expense_categories (user_id, name, type, icon, color, is_default)
+            VALUES (?, ?, ?, ?, ?, FALSE)
+        `, [userId, name, type, icon || '📦', color || '#94a3b8']);
+
+        const [newCat] = await pool.execute("SELECT * FROM expense_categories WHERE id = ?", [result.insertId]);
+        res.json(newCat[0]);
+    } catch (e) {
+        console.error("Create category failed:", e);
+        res.status(500).json({ error: "Failed to create category" });
     }
 };
 
@@ -305,8 +414,10 @@ export const getStats = async (req, res) => {
 
         res.json({
             month,
-            income,
-            expense,
+            total_income: income,
+            total_expense: expense,
+            balance_period: income - expense,
+            total_debt: 0, // Placeholder as debt table is not yet implemented
             categories: formattedCats,
             comparison: {
                 prev_month: prevMonthStr,
@@ -444,10 +555,9 @@ export const runMigration = async (req, res) => {
                 type ENUM('EXPENSE', 'INCOME') NOT NULL,
                 category_id INT,
                 transaction_date DATETIME NOT NULL,
-                note TEXT,
                 image_url VARCHAR(255),
                 house_id INT NULL,
-                source_type ENUM('MANUAL', 'WALLET', 'ORDER') DEFAULT 'MANUAL',
+                source_type ENUM('MANUAL', 'WALLET', 'ORDER', 'HOUSE_TX') DEFAULT 'MANUAL',
                 source_id INT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

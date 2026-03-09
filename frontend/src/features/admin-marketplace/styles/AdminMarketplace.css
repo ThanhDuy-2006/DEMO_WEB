@@ -1,0 +1,38 @@
+.admin-marketplace .glass-card {
+    background: rgba(17, 24, 39, 0.4);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.admin-marketplace table th {
+    font-weight: 900;
+    letter-spacing: 0.05em;
+}
+
+.admin-marketplace table td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* Fix select/option for Dark Mode browser defaults */
+.admin-marketplace select option {
+    background-color: #1e293b;
+    color: white;
+}
+
+.admin-marketplace select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+/* Badge mini styles for table */
+.product-badge-mini {
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.product-badge-mini.new { background: #3b82f6; color: white; }
+.product-badge-mini.best-seller { background: #f59e0b; color: white; }
+.product-badge-mini.add-on { background: #7c3aed; color: white; }

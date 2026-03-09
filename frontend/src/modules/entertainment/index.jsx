@@ -15,6 +15,12 @@ const ChapterReader = lazy(() => import('./pages/ChapterReader'));
 const FollowingComicsPage = lazy(() => import('./pages/FollowingComicsPage'));
 const MoviesPage = lazy(() => import('./pages/MoviesPage'));
 const MovieDetail = lazy(() => import('./pages/MovieDetail'));
+const LiveTV = lazy(() => import('./pages/LiveTV'));
+const ImagesPage = lazy(() => import('./pages/ImagesPage'));
+const MusicPage = lazy(() => import('./pages/MusicPage'));
+const SpotifyPage = lazy(() => import('./pages/SpotifyPage'));
+const SoundCloudPage = lazy(() => import('./pages/SoundCloudPage'));
+const YouTubePage = lazy(() => import('./pages/YouTubePage'));
 
 export default function EntertainmentRoutes() {
     return (
@@ -26,7 +32,14 @@ export default function EntertainmentRoutes() {
                 <Route path="comics/:slug" element={<ComicDetail />} />
                 <Route path="comics/:slug/chapter/:chapterNum" element={<ChapterReader />} />
                 <Route path="movies" element={<MoviesPage />} />
+                <Route path="my-list" element={<MoviesPage />} />
                 <Route path="movies/:slug" element={<MovieDetail />} />
+                <Route path="tv" element={<LiveTV />} />
+                <Route path="images" element={<ImagesPage />} />
+                <Route path="music" element={<MusicPage />} />
+                <Route path="spotify" element={<SpotifyPage />} />
+                <Route path="soundcloud" element={<SoundCloudPage />} />
+                <Route path="youtube" element={<YouTubePage />} />
             </Routes>
         </Suspense>
     );

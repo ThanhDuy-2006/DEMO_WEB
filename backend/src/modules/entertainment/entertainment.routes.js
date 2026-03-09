@@ -1,6 +1,9 @@
 import express from 'express';
+import musicRouter from './music.routes.js';
 
 const router = express.Router();
+
+router.use('/music', musicRouter);
 
 // Simple in-memory cache for proxy requests
 const proxyCache = new Map();
@@ -28,20 +31,33 @@ router.get('/proxy', async (req, res) => {
 
     try {
         const decodedUrl = targetUrl;
+        const urlObj = new URL(decodedUrl);
         
         const response = await fetch(decodedUrl, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
                 'Accept': 'application/json, text/plain, */*',
-                'Referer': new URL(decodedUrl).origin
+                'Accept-Language': 'vi,en-US;q=0.9,en;q=0.8',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache',
+                'Referer': urlObj.origin + '/'
             },
-            signal: AbortSignal.timeout(8000) // 8s timeout for external fetch
+            signal: AbortSignal.timeout(15000) // Longer timeout for video decryption
         });
 
         if (!response.ok) {
-            return res.status(response.status).json({ error: "External API Error" });
+            const errorText = await response.text();
+            console.error(`[PROXY ERROR] ${response.status} from ${decodedUrl}:`, errorText.substring(0, 200));
+            return res.status(response.status).json({ 
+                error: "External API Error", 
+                status: response.status,
+                details: errorText.substring(0, 100)
+            });
         }
 
+        if (!response.ok) {
+            console.error(`[PROXY ERROR] ${response.status} from ${targetUrl}`);
+        }
         const data = await response.json();
         
         // Save to Cache
@@ -50,9 +66,45 @@ router.get('/proxy', async (req, res) => {
             expiry: Date.now() + CACHE_TTL
         });
 
+        // Set specific headers for audio/video data if needed
+        res.setHeader('Access-Control-Allow-Origin', '*');
         res.json(data);
     } catch (error) {
         res.status(502).json({ error: "Failed to connect to external API", details: error.message });
+    }
+});
+
+/**
+ * Generic POST proxy for external APIs (like Cobalt)
+ */
+router.post('/proxy', async (req, res) => {
+    const targetUrl = req.query.url;
+    
+    if (!targetUrl) {
+        return res.status(400).json({ error: "URL parameter is required" });
+    }
+
+    try {
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+            },
+            body: JSON.stringify(req.body),
+            signal: AbortSignal.timeout(15000)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            return res.status(response.status).json({ error: "External POST Error", details: errorText.substring(0, 100) });
+        }
+
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        res.status(502).json({ error: "POST Proxy failed", details: error.message });
     }
 });
 
@@ -65,13 +117,15 @@ router.get('/filter', async (req, res) => {
         const { type, genre, country, year, page = 1 } = req.query;
         let targetUrl = '';
 
+        const OPHIM_BASE = process.env.OPHIM_API_URL;
+
         // Determine primary API endpoint based on priority
         if (genre) {
-            targetUrl = `https://ophim1.com/v1/api/the-loai/${genre}`;
+            targetUrl = `${OPHIM_BASE}/the-loai/${genre}`;
         } else if (country) {
-            targetUrl = `https://ophim1.com/v1/api/quoc-gia/${country}`;
+            targetUrl = `${OPHIM_BASE}/quoc-gia/${country}`;
         } else if (year) {
-            targetUrl = `https://ophim1.com/v1/api/nam-phat-hanh/${year}`;
+            targetUrl = `${OPHIM_BASE}/nam-phat-hanh/${year}`;
         } else if (type) {
             // Mapping UI types to OPhim slugs
             const typeMap = {
@@ -82,9 +136,9 @@ router.get('/filter', async (req, res) => {
                 'chieu-rap': 'phim-chieu-rap'
             };
             const slug = typeMap[type] || type; 
-            targetUrl = `https://ophim1.com/v1/api/danh-sach/${slug}`;
+            targetUrl = `${OPHIM_BASE}/danh-sach/${slug}`;
         } else {
-            targetUrl = `https://ophim1.com/v1/api/danh-sach/phim-moi-cap-nhat`;
+            targetUrl = `${OPHIM_BASE}/danh-sach/phim-moi-cap-nhat`;
         }
 
         // Add page param
@@ -139,7 +193,8 @@ router.get('/filter', async (req, res) => {
  * Get Comic Categories
  */
 router.get('/comics/categories', async (req, res) => {
-    const targetUrl = 'https://otruyenapi.com/v1/api/the-loai';
+    const OTRUYEN_BASE = process.env.OTRUYEN_API_URL;
+    const targetUrl = `${OTRUYEN_BASE}/the-loai`;
     if (proxyCache.has(targetUrl)) {
         const cached = proxyCache.get(targetUrl);
         if (Date.now() < cached.expiry) return res.json(cached.data);
@@ -162,13 +217,15 @@ router.get('/comics/filter', async (req, res) => {
         const { category, status, sort, year, type, q, page = 1 } = req.query;
         let targetUrl = '';
 
+        const OTRUYEN_BASE = process.env.OTRUYEN_API_URL;
+        
         // Priority Logic for OTRUYEN
         if (q) {
-            targetUrl = `https://otruyenapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(q)}`;
+            targetUrl = `${OTRUYEN_BASE}/tim-kiem?keyword=${encodeURIComponent(q)}`;
         } else if (category) {
             // otruyen supports single category slug
             const catSlug = category.split(',')[0]; 
-            targetUrl = `https://otruyenapi.com/v1/api/the-loai/${catSlug}`;
+            targetUrl = `${OTRUYEN_BASE}/the-loai/${catSlug}`;
         } else if (status) {
             // status map for otruyen lists: dang-cap-nhat, hoan-thanh, sap-ra-mat
             const statusMap = {
@@ -177,12 +234,12 @@ router.get('/comics/filter', async (req, res) => {
                 'upcoming': 'sap-ra-mat'
             };
             const listSlug = statusMap[status] || 'truyen-moi';
-            targetUrl = `https://otruyenapi.com/v1/api/danh-sach/${listSlug}`;
+            targetUrl = `${OTRUYEN_BASE}/danh-sach/${listSlug}`;
         } else if (type) {
             // mapping type to a list if possible, or search
-            targetUrl = `https://otruyenapi.com/v1/api/danh-sach/truyen-moi`;
+            targetUrl = `${OTRUYEN_BASE}/danh-sach/truyen-moi`;
         } else {
-            targetUrl = `https://otruyenapi.com/v1/api/danh-sach/truyen-moi`;
+            targetUrl = `${OTRUYEN_BASE}/danh-sach/truyen-moi`;
         }
 
         targetUrl += (targetUrl.includes('?') ? '&' : '?') + `page=${page}`;

@@ -5,7 +5,7 @@ import { api } from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 import BackButton from "../components/common/BackButton";
 import { SciFiSearch } from "../components/SciFiSearch";
-import { Eye, Trash2, ShieldCheck, Shield, Ban, ShoppingCart } from "lucide-react";
+import { Eye, Trash2, ShieldCheck, Shield, Ban, ShoppingCart, Image as ImageIcon, LayoutGrid, List } from "lucide-react";
 import "./MyProducts.css";
 
 export function MyProducts() {
@@ -13,7 +13,8 @@ export function MyProducts() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
-    const [isImagesHidden, setIsImagesHidden] = useState(true);
+    const [viewMode, setViewMode] = useState("table"); // 'grid' or 'table'
+    const [showImages, setShowImages] = useState(false);
     const { user } = useAuth();
     const navigate = useNavigate();
     
@@ -104,7 +105,7 @@ export function MyProducts() {
                 </div>
             </header>
 
-            <div className="flex items-center gap-6 mb-8">
+            <div className="flex items-center justify-between mb-8 gap-4">
                 <div className="flex-1">
                     <SciFiSearch 
                         placeholder="Tìm kiếm sản phẩm của bạn..."
@@ -113,60 +114,31 @@ export function MyProducts() {
                     />
                 </div>
 
-                {/* Holo Toggle */}
-                <div className="toggle-container scale-75 origin-left">
-                  <div className="toggle-wrap">
-                    <input 
-                        className="toggle-input" 
-                        id="holo-toggle-products" 
-                        type="checkbox" 
-                        checked={isImagesHidden}
-                        onChange={(e) => setIsImagesHidden(e.target.checked)}
-                    />
-                    <label className="toggle-track" htmlFor="holo-toggle-products">
-                      <div className="track-lines">
-                        <div className="track-line"></div>
-                      </div>
+                <div className="flex items-center gap-2">
+                    <div className="flex bg-slate-800/50 p-1 rounded-lg border border-white/5 mr-2">
+                        <button 
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                            onClick={() => setViewMode('grid')}
+                            title="Lưới"
+                        >
+                            <LayoutGrid size={18} />
+                        </button>
+                        <button 
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'table' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                            onClick={() => setViewMode('table')}
+                            title="Bảng"
+                        >
+                            <List size={18} />
+                        </button>
+                    </div>
 
-                      <div className="toggle-thumb">
-                        <div className="thumb-core"></div>
-                        <div className="thumb-inner"></div>
-                        <div className="thumb-scan"></div>
-                        <div className="thumb-particles">
-                          <div className="thumb-particle"></div>
-                          <div className="thumb-particle"></div>
-                          <div className="thumb-particle"></div>
-                          <div className="thumb-particle"></div>
-                          <div className="thumb-particle"></div>
-                        </div>
-                      </div>
-
-                      <div className="toggle-data">
-                        <div className="data-text off" style={{fontSize: '10px'}}>ẢNH: BẬT</div>
-                        <div className="data-text on" style={{fontSize: '10px'}}>ẢNH: TẮT</div>
-                        <div className="status-indicator off"></div>
-                        <div className="status-indicator on"></div>
-                      </div>
-
-                      <div className="energy-rings">
-                        <div className="energy-ring"></div>
-                        <div className="energy-ring"></div>
-                        <div className="energy-ring"></div>
-                      </div>
-
-                      <div className="interface-lines">
-                        <div className="interface-line"></div>
-                        <div className="interface-line"></div>
-                        <div className="interface-line"></div>
-                        <div className="interface-line"></div>
-                        <div className="interface-line"></div>
-                        <div className="interface-line"></div>
-                      </div>
-
-                      <div className="toggle-reflection"></div>
-                      <div className="holo-glow"></div>
-                    </label>
-                  </div>
+                    <button 
+                        className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg transition-all border ${showImages ? 'bg-blue-600/20 border-blue-500/50 text-blue-400' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-white/5'}`}
+                        onClick={() => setShowImages(!showImages)}
+                    >
+                        <ImageIcon size={14} />
+                        {showImages ? 'Ẩn Ảnh' : 'Hiện Ảnh'}
+                    </button>
                 </div>
             </div>
 
@@ -182,15 +154,93 @@ export function MyProducts() {
                         <span className="text">🛒 Bắt đầu đăng bán ngay</span>
                     </Link>
                 </div>
+            ) : viewMode === 'table' ? (
+                <div className="warehouse-table-container scrollbar-custom">
+                    <table className="warehouse-table">
+                        <thead>
+                            <tr>
+                                {isSelectMode && <th className="w-10"></th>}
+                                {showImages && <th className="image-col-header">Ảnh</th>}
+                                <th>Sản phẩm</th>
+                                <th>Nhà</th>
+                                <th>Giá</th>
+                                <th>Số lượng</th>
+                                <th>Trạng thái</th>
+                                <th className="text-right">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filtered.map(p => (
+                                <tr 
+                                    key={p.id} 
+                                    className={`${selectedIds.includes(p.id) ? 'selected' : ''}`}
+                                    onClick={() => isSelectMode && toggleSelect(p.id)}
+                                >
+                                    {isSelectMode && (
+                                        <td>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={selectedIds.includes(p.id)}
+                                                readOnly
+                                                className="checkbox checkbox-primary checkbox-sm"
+                                            />
+                                        </td>
+                                    )}
+                                    {showImages && (
+                                        <td className="image-cell-content">
+                                            <div className="table-img-wrapper">
+                                                {p.image_url ? (
+                                                    <img src={p.image_url} alt="" onError={(e) => e.target.style.display = 'none'} />
+                                                ) : (
+                                                    <div className="img-placeholder">📦</div>
+                                                )}
+                                            </div>
+                                        </td>
+                                    )}
+                                    <td className="font-bold">{p.name}</td>
+                                    <td className="text-slate-400 text-xs">{p.house_name}</td>
+                                    <td className="text-amber-400 font-bold">{Number(p.price).toLocaleString()}đ</td>
+                                    <td className="font-mono">{p.source_type === 'inventory' ? p.inventory_qty : p.quantity}</td>
+                                    <td>
+                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                                            p.source_type === 'inventory' ? 'bg-indigo-500/20 text-indigo-300' : 
+                                            p.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
+                                        }`}>
+                                            {p.source_type === 'inventory' ? 'Trong kho' : (p.status === 'active' ? 'Đang bán' : 'Chờ duyệt')}
+                                        </span>
+                                    </td>
+                                    <td className="text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <button 
+                                                className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors"
+                                                onClick={(e) => { e.stopPropagation(); navigate(`/houses/${p.house_id}`); }}
+                                                title="Xem"
+                                            >
+                                                <Eye size={16} />
+                                            </button>
+                                            <button 
+                                                className="p-2 hover:bg-red-500/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
+                                                onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }}
+                                                title="Xóa"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             ) : (
-                <div className={`products-grid ${isImagesHidden ? 'compact-view' : ''}`}>
+                <div className={`products-grid ${!showImages ? 'compact-view' : ''}`}>
                     {filtered.map(p => (
                         <div 
                             key={p.id} 
-                            className={`product-card-manage group ${isSelectMode ? 'selecting' : ''} ${selectedIds.includes(p.id) ? 'selected' : ''} ${isImagesHidden ? 'compact-card' : ''}`}
+                            className={`product-card-manage group ${isSelectMode ? 'selecting' : ''} ${selectedIds.includes(p.id) ? 'selected' : ''} ${!showImages ? 'compact-card' : ''}`}
                             onClick={() => isSelectMode && toggleSelect(p.id)}
                         >
-                            {!isImagesHidden ? (
+                            {showImages ? (
                                 <>
                                     <div className="card-img-container">
                                         {p.image_url ? (
@@ -243,13 +293,11 @@ export function MyProducts() {
                                     
                                     {!isSelectMode && (
                                         <div className="flex justify-end gap-2 mt-2">
-                                            <button className="Btn btn-view scale-75 origin-right" onClick={(e) => { e.stopPropagation(); navigate(`/houses/${p.house_id}`); }} title="Xem">
-                                                <span className="svgIcon"><Eye size={16} /></span>
-                                                <span className="text">Xem</span>
+                                            <button className="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition-colors" onClick={(e) => { e.stopPropagation(); navigate(`/houses/${p.house_id}`); }} title="Xem">
+                                                <Eye size={16} />
                                             </button>
-                                            <button className="Btn btn-delete scale-75 origin-right" onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} title="Xóa">
-                                                <span className="svgIcon"><Trash2 size={16} /></span>
-                                                <span className="text">Xóa</span>
+                                            <button className="p-2 hover:bg-red-500/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors" onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} title="Xóa">
+                                                <Trash2 size={16} />
                                             </button>
                                         </div>
                                     )}

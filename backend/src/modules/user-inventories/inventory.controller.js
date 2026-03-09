@@ -7,10 +7,11 @@ export const getMyInventory = async (req, res) => {
     try {
         const pool = await connectDB();
         let query = `
-            SELECT ui.*, p.name, p.price, p.description, p.image_url, u.full_name as seller_name
+            SELECT ui.*, p.name, p.price, p.description, p.image_url, u.full_name as seller_name, h.name as house_name
             FROM user_inventories ui
             JOIN products p ON p.id = ui.product_id
             JOIN users u ON u.id = p.seller_id
+            JOIN houses h ON h.id = p.house_id
             WHERE ui.user_id = ? AND ui.quantity > 0 AND p.status != 'deleted' AND ui.deleted_at IS NULL
         `;
         const params = [userId];

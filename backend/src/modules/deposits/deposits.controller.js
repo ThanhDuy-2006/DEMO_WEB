@@ -20,12 +20,56 @@ export const createDepositRequest = async (req, res) => {
 
     try {
         const pool = await connectDB();
-        await pool.execute(
-            "INSERT INTO deposit_requests (user_id, amount, method, proof_image, status) VALUES (?, ?, ?, ?, 'PENDING')",
-            [userId, amount, method, proof_image]
-        );
+        const isAdmin = req.user.role === 'admin';
+        const status = isAdmin ? 'APPROVED' : 'PENDING';
+        const processedAt = isAdmin ? 'NOW()' : 'NULL';
 
-        res.json({ success: true, message: "Yêu cầu nạp tiền đã được gửi, vui lòng chờ duyệt." });
+        let connection;
+        if (isAdmin) {
+            connection = await pool.getConnection();
+            await connection.beginTransaction();
+
+            // 1. Create Request as APPROVED
+            const [drRes] = await connection.execute(
+                `INSERT INTO deposit_requests (user_id, amount, method, proof_image, status, processed_at, admin_note) 
+                 VALUES (?, ?, ?, ?, 'APPROVED', NOW(), 'Admin tự nạp (Auto-approve)')`,
+                [userId, amount, method, proof_image]
+            );
+            const drId = drRes.insertId;
+
+            // 2. Update Wallet balance
+            await connection.execute("INSERT IGNORE INTO wallets (user_id, balance) VALUES (?, 0)", [userId]);
+            await connection.execute("SELECT balance FROM wallets WHERE user_id = ? FOR UPDATE", [userId]);
+            await connection.execute(
+                "UPDATE wallets SET balance = balance + ?, updated_at = NOW() WHERE user_id = ?",
+                [amount, userId]
+            );
+
+            // 3. Record Transaction
+            await connection.execute(
+                `INSERT INTO wallet_transactions (user_id, type, amount, description, deposit_request_id) 
+                 VALUES (?, ?, ?, ?, ?)`,
+                [userId, 'DEPOSIT', amount, `Nạp tiền qua ${method} (Admin Auto-approve)`, drId]
+            );
+
+            await connection.commit();
+            connection.release();
+
+            const [walletRows] = await pool.execute("SELECT balance FROM wallets WHERE user_id = ?", [userId]);
+            emitToUser(userId, "walletUpdated", { 
+                newBalance: walletRows[0].balance,
+                message: "Nạp tiền thành công (Admin auto-approve)!"
+            });
+
+            return res.json({ success: true, message: "Nạp tiền thành công (Admin auto-approve)!" });
+        } else {
+            // Regular User: Just create a PENDING request
+            await pool.execute(
+                "INSERT INTO deposit_requests (user_id, amount, method, proof_image, status) VALUES (?, ?, ?, ?, 'PENDING')",
+                [userId, amount, method, proof_image]
+            );
+            res.json({ success: true, message: "Yêu cầu nạp tiền đã được gửi, vui lòng chờ duyệt." });
+        }
     } catch (err) {
         logger.error("Create Deposit Request Error:", err);
         res.status(500).json({ error: "Lỗi hệ thống khi gửi yêu cầu." });
@@ -57,7 +101,7 @@ export const getAllDepositRequestsAdmin = async (req, res) => {
     try {
         const pool = await connectDB();
         const [rows] = await pool.execute(`
-            SELECT dr.*, u.full_name, u.email 
+            SELECT dr.*, u.full_name, u.email, u.avatar_url
             FROM deposit_requests dr
             JOIN users u ON dr.user_id = u.id
             ORDER BY dr.status = 'PENDING' DESC, dr.created_at DESC
@@ -115,8 +159,8 @@ export const approveDepositRequest = async (req, res) => {
         // wallet_transactions schema: id, user_id, related_user_id, type, amount, description, deposit_request_id
         await connection.execute(
             `INSERT INTO wallet_transactions (user_id, type, amount, description, deposit_request_id) 
-             VALUES (?, 'DEPOSIT', ?, ?, ?)`,
-            [user_id, amount, `Nạp tiền qua ${request.method} (Yêu cầu #${id})`, id]
+             VALUES (?, ?, ?, ?, ?)`,
+            [user_id, 'DEPOSIT', amount, `Nạp tiền qua ${request.method} (Yêu cầu #${id})`, id]
         );
 
         // 5. Update deposit request status

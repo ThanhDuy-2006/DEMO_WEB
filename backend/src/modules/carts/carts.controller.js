@@ -14,7 +14,7 @@ export const getCart = async (req, res) => {
         }
 
         const [items] = await pool.execute(`
-            SELECT ci.*, p.name, p.price, p.image_url, p.seller_id, u.full_name as seller_name,
+            SELECT ci.*, p.name, p.price, p.unit_price, p.image_url, p.seller_id, u.full_name as seller_name,
                    h.type as house_type,
                    (SELECT quantity FROM user_inventories ui WHERE ui.product_id = p.id AND ui.user_id = p.seller_id) as remaining_slots
             FROM cart_items ci

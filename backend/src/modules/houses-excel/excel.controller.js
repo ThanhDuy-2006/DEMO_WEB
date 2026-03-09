@@ -33,7 +33,7 @@ export const getExcelData = async (req, res) => {
         // If an item has NO product_id (legacy), show it for migration.
         // If it HAS product_id, only show if NOT deleted and quantity > 0.
         const [items] = await pool.execute(
-            `SELECT i.* 
+            `SELECT i.*, p.image_url
              FROM house_excel_items i
              LEFT JOIN products p ON p.id = i.product_id
              WHERE i.house_id = ? 
@@ -57,10 +57,10 @@ export const getExcelData = async (req, res) => {
             [houseId]
         );
 
+
         // --- MIGRATION: Auto-create products for existing items that don't have one ---
         const itemsToMigrate = items.filter(i => !i.product_id);
         if (itemsToMigrate.length > 0) {
-            const [houseRows] = await pool.execute(`SELECT owner_id FROM houses WHERE id = ?`, [houseId]);
             const ownerId = houseRows[0]?.owner_id;
             if (ownerId) {
                 for (const item of itemsToMigrate) {
@@ -109,7 +109,13 @@ export const createItem = async (req, res) => {
             itemsToProcess.push(...items);
         } else if (name) {
             const names = name.split(/[\n,]+/).map(n => n.trim()).filter(n => n.length > 0);
-            names.forEach(n => itemsToProcess.push({ name: n, price: price || 0, quantity: quantity || 1 }));
+            names.forEach(n => itemsToProcess.push({ 
+                name: n, 
+                price: price || 0, 
+                quantity: quantity || 1, 
+                description: req.body.description || "", 
+                image_url: req.body.image_url || "" 
+            }));
         }
 
         if (itemsToProcess.length === 0) return res.status(400).json({ error: "No valid items provided" });
@@ -123,23 +129,28 @@ export const createItem = async (req, res) => {
             const itemPrice = item.price || 0;
             const itemQty = item.quantity || 1;
             const itemDesc = item.description || "";
+            const itemImg = item.image_url || "";
 
             if (!itemName) continue;
 
             // 1. Create real Product
+            const sellerId = userId;
+            
             const unitPrice = (itemQty > 0) ? (itemPrice / itemQty) : itemPrice;
             const [pRes] = await connection.execute(
-                `INSERT INTO products (house_id, seller_id, name, description, price, unit_price, quantity, status) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
-                [houseId, userId, itemName, itemDesc, itemPrice, unitPrice, itemQty]
+                `INSERT INTO products (house_id, seller_id, name, description, price, unit_price, quantity, image_url, status) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+                [houseId, sellerId, itemName, itemDesc, itemPrice, unitPrice, itemQty, itemImg]
             );
             const productId = pRes.insertId;
 
-            // 2. Add to Inventory
-            await connection.execute(
-                `INSERT INTO user_inventories (user_id, product_id, quantity) VALUES (?, ?, ?)`,
-                [userId, productId, itemQty]
-            );
+            // 2. Add to Inventory (Only if belonging to a user)
+            if (sellerId) {
+                await connection.execute(
+                    `INSERT INTO user_inventories (user_id, product_id, quantity) VALUES (?, ?, ?)`,
+                    [userId, productId, itemQty]
+                );
+            }
 
             // 3. Create Excel Item linked to product
             const [result] = await connection.execute(
@@ -285,7 +296,11 @@ export const toggleStatus = async (req, res) => {
         const item = itemRows[0];
         const totalPrice = parseFloat(item.price || 0);
         const productId = item.product_id;
-        const sellerId = item.seller_id;
+        
+        let sellerId = item.seller_id;
+        if (!sellerId) throw new Error("Sản phẩm không có người bán (seller_id null)");
+        
+        if (!sellerId) throw new Error("Không xác định được chủ sở hữu sản phẩm");
 
         // 2. Get currently checked users (before change)
         const [oldStatusRows] = await connection.execute(
@@ -326,11 +341,32 @@ export const toggleStatus = async (req, res) => {
         // 6. Financial transactions and Inventory updates
         // A. Refunds and Inventory removal for old group
         for (const pid of oldParticipants) {
+            // Check if member still exists
+            const [mRows] = await connection.execute(
+                `SELECT id FROM user_houses WHERE user_id = ? AND house_id = ? AND role != 'pending'`, 
+                [pid, houseId]
+            );
+            const isStillMember = mRows.length > 0;
+
+            if (!isStillMember) continue; // Skip refund for users who left (Seller keeps the money)
+
             // Financials (only if price > 0)
             if (oldShare > 0) {
                 await connection.execute(`UPDATE wallets SET balance = balance + ? WHERE user_id = ?`, [oldShare, pid]);
                 await connection.execute(`UPDATE wallets SET balance = balance - ? WHERE user_id = ?`, [oldShare, sellerId]);
                 
+                // Record for Wallet History
+                await connection.execute(
+                    `INSERT INTO wallet_transactions (user_id, related_user_id, type, amount, description) 
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [pid, sellerId, 'REFUND', oldShare, `Hoàn tiền chia sẻ: ${item.name}`]
+                );
+                await connection.execute(
+                    `INSERT INTO wallet_transactions (user_id, related_user_id, type, amount, description) 
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [sellerId, pid, 'REFUND', -oldShare, `Hoàn trả tiền chia sẻ cho thành viên (Mục: ${item.name})`]
+                );
+
                 await connection.execute(
                     `INSERT INTO transactions (user_id, product_id, house_id, quantity, unit_price, total_price, description, type) 
                      VALUES (?, ?, ?, 1, ?, ?, ?, 'REFUND')`,
@@ -354,10 +390,29 @@ export const toggleStatus = async (req, res) => {
 
         // B. Charges and Inventory addition for new group
         for (const pid of newParticipants) {
+            // Check if member still exists
+            const [mRows] = await connection.execute(
+                `SELECT id FROM user_houses WHERE user_id = ? AND house_id = ? AND role != 'pending'`, 
+                [pid, houseId]
+            );
+            if (mRows.length === 0) continue; // Skip charging for non-members
+
             // Financials (only if price > 0)
             if (newShare > 0) {
                 await connection.execute(`UPDATE wallets SET balance = balance - ? WHERE user_id = ?`, [newShare, pid]);
                 await connection.execute(`UPDATE wallets SET balance = balance + ? WHERE user_id = ?`, [newShare, sellerId]);
+
+                // Record for Wallet History
+                await connection.execute(
+                    `INSERT INTO wallet_transactions (user_id, related_user_id, type, amount, description) 
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [pid, sellerId, 'PAYMENT', -newShare, `Góp tiền chia sẻ: ${item.name}`]
+                );
+                await connection.execute(
+                    `INSERT INTO wallet_transactions (user_id, related_user_id, type, amount, description) 
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [sellerId, pid, 'SALE', newShare, `Nhận tiền chia sẻ từ thành viên (Mục: ${item.name})`]
+                );
 
                 await connection.execute(
                     `INSERT INTO transactions (user_id, product_id, house_id, quantity, unit_price, total_price, description, type) 

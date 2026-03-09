@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { entertainmentService } from '../services/entertainmentApi';
 import BackButton from "../../../components/common/BackButton";
-import { ArrowLeft, ArrowRight, Settings, List, Home, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Settings, List, Home, X, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
+import { useComicHistory } from '../hooks/useComicHistory';
 
 export default function ChapterReader() {
     const { slug, chapterNum } = useParams();
     const { user } = useAuth();
+    const { history, markChapterAsRead } = useComicHistory(slug);
     const location = useLocation();
     const navigate = useNavigate();
     const [chapter, setChapter] = useState(null);
@@ -16,33 +18,60 @@ export default function ChapterReader() {
     const [imgDomain, setImgDomain] = useState('');
     const [isListOpen, setIsListOpen] = useState(false);
     const [showUI, setShowUI] = useState(true);
+    const uiTimer = useRef(null);
     const lastScrollY = useRef(0);
 
-    // Toggle UI on double click
-    const handleDoubleClick = (e) => {
-        if (e.target.closest('button, a')) return;
-        setShowUI(!showUI);
+    // Initial hide timer
+    useEffect(() => {
+        startHideTimer();
+        return () => { if (uiTimer.current) clearTimeout(uiTimer.current); };
+    }, []);
+
+    // Auto hide UI timer
+    const startHideTimer = () => {
+        if (uiTimer.current) clearTimeout(uiTimer.current);
+        uiTimer.current = setTimeout(() => {
+            setShowUI(false);
+        }, 3500);
     };
 
-    // Auto show/hide UI on scroll
+    // Toggle UI on single click
+    const handleToggleUI = (e) => {
+        if (e.target.closest('button, a')) {
+            if (uiTimer.current) clearTimeout(uiTimer.current);
+            return;
+        }
+        
+        setShowUI(prev => {
+            const nextState = !prev;
+            if (nextState) startHideTimer();
+            else if (uiTimer.current) clearTimeout(uiTimer.current);
+            return nextState;
+        });
+    };
+
     useEffect(() => {
         const handleScroll = () => {
             const currentScrollY = window.scrollY;
             
-            // Show UI when scrolling up significantly or at top
-            if (currentScrollY < lastScrollY.current - 10 || currentScrollY < 100) {
-                setShowUI(true);
-            } 
             // Hide UI when scrolling down
-            else if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
+            if (currentScrollY > lastScrollY.current + 10 && currentScrollY > 100) {
                 setShowUI(false);
+            }
+            // Show UI when scrolling up
+            else if (currentScrollY < lastScrollY.current - 25) {
+                setShowUI(true);
+                startHideTimer();
             }
             
             lastScrollY.current = currentScrollY;
         };
 
         window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            if (uiTimer.current) clearTimeout(uiTimer.current);
+        };
     }, []);
 
     useEffect(() => {
@@ -65,6 +94,9 @@ export default function ChapterReader() {
                         if (res.status === 'success') {
                             setChapter(res.data.item);
                             setImgDomain(res.data.domain_cdn);
+
+                            // Mark as read in local history
+                            markChapterAsRead(slug, chapterNum);
 
                             // Update last chapter in follow list if logged in
                             if (user) {
@@ -111,8 +143,8 @@ export default function ChapterReader() {
 
     return (
         <div 
-            className="min-h-screen bg-[#050505] animate-fade-in select-none"
-            onDoubleClick={handleDoubleClick}
+            className="min-h-screen bg-[#020202] animate-fade-in select-none"
+            onClick={handleToggleUI}
         >
             {/* Control Bar (Top) - Fixed & Toggleable */}
             <div className={`fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-white/5 px-4 py-3 flex items-center justify-between transition-transform duration-300 ${showUI ? 'translate-y-0' : '-translate-y-full'}`}>
@@ -137,7 +169,7 @@ export default function ChapterReader() {
             </div>
 
             {/* Images Container */}
-            <div className={`max-w-3xl mx-auto transition-all duration-300 ${showUI ? 'pt-20 pb-40' : 'py-0'}`}>
+            <div className={`max-w-3xl mx-auto transition-all duration-300 ${showUI ? 'pt-16 pb-32' : 'py-0'}`}>
                 {chapter.chapter_path && chapter.chapter_image?.map((img, index) => (
                     <div key={index} className="relative w-full bg-slate-900 flex items-center justify-center min-h-[300px]">
                         <img 
@@ -154,8 +186,8 @@ export default function ChapterReader() {
             </div>
 
             {/* Navigation (Floating Bottom) - Toggleable */}
-            <div className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900/90 backdrop-blur-xl border-t border-white/10 p-6 transition-transform duration-500 ${showUI ? 'translate-y-0' : 'translate-y-full'} shadow-2xl shadow-black`}>
-                <div className="max-w-md mx-auto flex items-center justify-between gap-4">
+            <div className={`fixed bottom-0 left-0 right-0 z-50 bg-slate-900/90 backdrop-blur-xl border-t border-white/5 p-4 transition-transform duration-500 ${showUI ? 'translate-y-0' : 'translate-y-full'} shadow-2xl`}>
+                <div className="max-w-md mx-auto flex items-center justify-between gap-3">
                     <button 
                         onClick={(e) => { e.stopPropagation(); navigate(`/entertainment/comics/${slug}/chapter/${prevChap.chapter_name}`); }}
                         disabled={!prevChap}
@@ -188,12 +220,8 @@ export default function ChapterReader() {
                     </button>
                 </div>
                 
-                <p className="text-center text-slate-500 text-[10px] mt-4 uppercase tracking-widest font-bold opacity-50 hidden sm:block">
-                    Double click để ẩn/hiện thanh công cụ
-                </p>
-                
-                <p className="text-center text-slate-500 text-[10px] mt-2 opacity-40">
-                    Bạn đang đọc tại <strong>HouseMarket Entertainment</strong>
+                <p className="text-center text-slate-500 text-[10px] mt-3 uppercase tracking-widest font-bold opacity-40">
+                    Chạm để ẩn/hiện thanh công cụ
                 </p>
             </div>
 
@@ -222,7 +250,12 @@ export default function ChapterReader() {
                         </div>
                         
                         <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                            {allChapters.map((chap) => (
+                            {allChapters.map((chap) => {
+                                const isRead = history?.readChapters?.includes(chap.chapter_name);
+                                const isCurrent = chap.chapter_name === chapterNum;
+                                const isLastRead = history?.lastRead === chap.chapter_name;
+
+                                return (
                                 <button
                                     key={chap.chapter_name}
                                     onClick={() => {
@@ -230,22 +263,35 @@ export default function ChapterReader() {
                                         navigate(`/entertainment/comics/${slug}/chapter/${chap.chapter_name}`);
                                     }}
                                     className={`w-full p-4 rounded-xl text-left border transition-all ${
-                                        chap.chapter_name === chapterNum 
+                                        isCurrent 
                                         ? 'bg-black border-blue-500/50 text-white font-bold shadow-lg shadow-blue-500/10' 
-                                        : 'bg-slate-800/40 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white'
+                                        : isRead 
+                                            ? 'bg-slate-800/20 border-white/5 text-slate-500 hover:bg-slate-800 hover:text-slate-300' 
+                                            : 'bg-slate-800/40 border-white/10 text-slate-200 font-medium hover:bg-white/10 hover:text-white'
                                     }`}
                                 >
                                     <div className="flex items-center justify-between">
-                                        <span>Chương {chap.chapter_name}</span>
-                                        {chap.chapter_name === chapterNum && (
+                                        <div className="flex items-center gap-2">
+                                            <span>Chương {chap.chapter_name}</span>
+                                            {isRead && !isCurrent && <CheckCircle2 size={12} className="text-green-500/50" />}
+                                        </div>
+                                        {isCurrent && (
                                             <span className="text-[10px] bg-slate-900 px-2 py-0.5 rounded-full text-blue-400 border border-blue-500/30 uppercase tracking-tighter font-black">
                                                 ĐANG ĐỌC
                                             </span>
                                         )}
+                                        {isLastRead && !isCurrent && (
+                                            <span className="text-[10px] bg-purple-900/50 text-purple-300 px-2 py-0.5 rounded-full border border-purple-500/30 uppercase tracking-tighter font-bold">
+                                                Đọc gần nhất
+                                            </span>
+                                        )}
                                     </div>
-                                    <p className="text-[10px] opacity-60 mt-0.5 line-clamp-1">{chap.chapter_title || 'Mới'}</p>
+                                    <p className={`text-[10px] mt-0.5 line-clamp-1 ${isCurrent ? 'opacity-60' : isRead ? 'text-slate-600' : 'text-slate-400'}`}>
+                                        {chap.chapter_title || 'Mới'}
+                                    </p>
                                 </button>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </div>

@@ -25,8 +25,8 @@ Cách đơn giản nhất để chạy toàn bộ hệ thống là sử dụng D
 
 ### 1. Clone Repo
 ```bash
-git clone https://github.com/username/repo.git
-cd webbanhang
+git clone https://github.com/ThanhDuy-2006/DEMO_WEB.git
+cd DEMO_WEB
 ```
 
 ### 2. Cấu hình biến môi trường

@@ -89,9 +89,23 @@ export function DepositManagement() {
         return `${host}${path}`;
     };
 
+    // Helper to get avatar URL safely
+    const getAvatarUrl = (url) => {
+        if (!url) return null;
+        if (url.includes("localhost") || url.includes("127.0.0.1")) {
+            try {
+                const urlObj = new URL(url);
+                return urlObj.pathname;
+            } catch (e) {
+                return url;
+            }
+        }
+        return url;
+    };
+
     return (
         <div className="deposit-management-page animate-fade-in p-6 min-h-screen">
-            <BackButton fallbackPath="/wallet" className="mb-6" />
+            <BackButton fallbackPath="/" className="mb-6" />
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                 <div>
@@ -116,8 +130,8 @@ export function DepositManagement() {
                 </div>
             ) : (
                 <div className="glass rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                    <div className="responsive-table-wrapper">
+                        <table className="w-full text-left border-collapse min-w-[800px]">
                             <thead>
                                 <tr className="bg-white/5 border-b border-white/10">
                                     <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Người dùng</th>
@@ -133,12 +147,26 @@ export function DepositManagement() {
                                     <tr key={req.id} className="hover:bg-white/5 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-                                                    {req.full_name?.charAt(0)}
+                                                <div className="w-10 h-10 shrink-0">
+                                                    {req.avatar_url ? (
+                                                        <img 
+                                                            src={getAvatarUrl(req.avatar_url)} 
+                                                            className="w-10 h-10 rounded-full object-cover border border-white/10 shadow-lg" 
+                                                            alt={req.full_name} 
+                                                            onError={(e) => {
+                                                                e.target.onerror = null;
+                                                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(req.full_name || 'U')}&background=0D1430&color=6366f1&bold=true`;
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-black text-xs border border-white/10">
+                                                            {req.full_name?.charAt(0).toUpperCase() || "U"}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div>
-                                                    <div className="text-white font-medium text-sm">{req.full_name}</div>
-                                                    <div className="text-[10px] text-slate-500 uppercase tracking-tighter">{req.email}</div>
+                                                <div className="min-w-0">
+                                                    <div className="text-white font-bold truncate leading-tight mb-0.5 text-sm">{req.full_name}</div>
+                                                    <div className="text-[10px] text-slate-500 font-medium truncate uppercase tracking-tighter">{req.email}</div>
                                                 </div>
                                             </div>
                                         </td>
@@ -198,20 +226,20 @@ export function DepositManagement() {
                                                         value={notes[req.id] || ""}
                                                         onChange={(e) => setNotes(prev => ({ ...prev, [req.id]: e.target.value }))}
                                                     />
-                                                    <div className="flex justify-end gap-2">
+                                                    <div className="flex justify-end gap-2 mt-2">
                                                         <button 
                                                             onClick={() => handleAction(req.id, 'reject')}
                                                             disabled={processingId === req.id || processingId}
-                                                            className="p-1 px-3 bg-red-500/20 hover:bg-red-500/30 text-red-500 rounded text-[10px] font-bold flex items-center gap-1 transition-all disabled:opacity-50"
+                                                            className="touch-target p-2 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-500 rounded-xl text-xs font-bold flex items-center gap-1 transition-all disabled:opacity-50"
                                                         >
-                                                            <X size={12} /> TỪ CHỐI
+                                                            <X size={14} /> TỪ CHỐI
                                                         </button>
                                                         <button 
                                                             onClick={() => handleAction(req.id, 'approve')}
                                                             disabled={processingId === req.id || processingId}
-                                                            className="p-1 px-3 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded text-[10px] font-bold flex items-center gap-1 transition-all disabled:opacity-50"
+                                                            className="touch-target p-2 px-4 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-xl text-xs font-bold flex items-center gap-1 transition-all disabled:opacity-50"
                                                         >
-                                                            <Check size={12} /> DUYỆT
+                                                            <Check size={14} /> DUYỆT
                                                         </button>
                                                     </div>
                                                 </div>

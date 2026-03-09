@@ -1,0 +1,6 @@
+# Dán danh sách Proxy của bạn vào đây (1 dòng 1 proxy)
+# Định dạng hỗ trợ:
+# 1. IP:Port  (Ví dụ: 103.1.2.3:8080)
+# 2. User:Pass@IP:Port (Ví dụ: user123:pass456@103.1.2.3:8080)
+#
+# Nếu không có proxy, hãy để Config USE_PROXY = False trong main.py

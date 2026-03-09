@@ -1,0 +1,133 @@
+
+// Configuration for valid IPTV sources and domains
+export const ALLOWED_DOMAINS = [
+    'fptplay.net',
+    'tv360.vn',
+    'cdn.vn',
+    'hls.vn',
+    'vtv.vn',
+    'vtvcab.vn',
+    'viettel.vn',
+    'vnpt.vn',
+    'clip.vn',
+    'on.vn',
+    'mytv.vn',
+    'sctv.com.vn',
+    'htv.com.vn',
+    'longan.gov.vn',
+    'binhphuoc.gov.vn',
+    'dongthap.gov.vn',
+    'tiengiang.gov.vn',
+    'brt.vn',
+    'bentre.gov.vn',
+    'travinh.gov.vn',
+    'vinhlong.gov.vn',
+    'cantho.gov.vn',
+    'haugiang.gov.vn',
+    'soc-trang.gov.vn',
+    'baclieu.gov.vn',
+    'camau.gov.vn',
+    'thvl.vn',
+    'hanoi.gov.vn',
+    'haiphong.gov.vn',
+    'danang.gov.vn',
+    'khanhhoa.gov.vn',
+    'binhdinh.gov.vn',
+    'phuyen.gov.vn',
+    'quangngai.gov.vn',
+    'quangnam.gov.vn',
+    'hue.gov.vn',
+    'quangtri.gov.vn',
+    'quangbinh.gov.vn',
+    'hatinh.gov.vn',
+    'nghean.gov.vn',
+    'thanhhoa.gov.vn',
+    'ninhbinh.gov.vn',
+    'namdinh.gov.vn',
+    'thaibinh.gov.vn',
+    'hungyen.gov.vn',
+    'haiduong.gov.vn',
+    'bacninh.gov.vn',
+    'vinhphuc.gov.vn',
+    'phutho.gov.vn',
+    'thainguyen.gov.vn',
+    'bacgiang.gov.vn',
+    'quangninh.gov.vn',
+    'langson.gov.vn',
+    'caobang.gov.vn',
+    'bac kan.gov.vn',
+    'tuyenquang.gov.vn',
+    'hagiang.gov.vn',
+    'laocai.gov.vn',
+    'yenbai.gov.vn',
+    'dienbian.gov.vn',
+    'laichau.gov.vn',
+    'sonla.gov.vn',
+    'hoabinh.gov.vn',
+    'googleusercontent.com',
+    'googleapis.com',
+    'blogspot.com',
+    'github.io',
+    'raw.githubusercontent.com',
+    'gitlab.io',
+    'vercel.app',
+    'herokuapp.com',
+    'netlify.app',
+    'surge.sh',
+    'firebaseapp.com',
+    'akamaihd.net',
+    'cloudfront.net',
+    'azureedge.net',
+    'fastly.net',
+    'limelight.com',
+    'level3.net',
+    'cdn77.org',
+    'cdn77.com',
+    'bunnycdn.com',
+    'keycdn.com',
+    'stackoverflow.com',
+    'pastebin.com',
+    'gg.gg', // Allowed for initial redirect, result must be in other allowed domains generally, but for simplicity we allow if valid m3u8
+    'bit.ly',
+    'tinyurl.com',
+    'rebrand.ly',
+    'is.gd',
+    't.co',
+    'lnkd.in',
+    'db.tt',
+    'qr.ae',
+    'adf.ly',
+    'goo.gl',
+    'ow.ly',
+    'buff.ly',
+    'mcaf.ee',
+    'su.pr',
+    'vips-livecdn.fptplay.net',
+    'live-ali2.tv360.vn'
+];
+
+export const EXTRA_SOURCES = [
+    {
+        name: "VN360 Sport",
+        url: "http://gg.gg/vn360sport",
+        type: "redirect",
+        categories: ["Sports"]
+    },
+    {
+        name: "TV360 Backup",
+        url: "https://tth.vn/tv360",
+        type: "redirect",
+        categories: ["General"]
+    }
+];
+
+// Helper to check if domain is allowed
+export const isAllowedDomain = (url) => {
+    try {
+        const hostname = new URL(url).hostname;
+        // Allow if hostname ends with any allowed domain
+        return ALLOWED_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
+    } catch (e) {
+        return false;
+    }
+};

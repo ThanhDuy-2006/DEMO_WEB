@@ -147,3 +147,25 @@ export const deleteUserAdmin = async (req, res) => {
     }
 };
 
+export const updateUserRoleAdmin = async (req, res) => {
+    const { id } = req.params;
+    const { role } = req.body; // 'member' or 'admin'
+
+    if (!['member', 'admin'].includes(role)) {
+        return res.status(400).json({ error: "Vai trò không hợp lệ" });
+    }
+
+    if (Number(id) === req.user.id) {
+        return res.status(400).json({ error: "Bạn không thể tự hạ quyền của chính mình" });
+    }
+
+    try {
+        const pool = await connectDB();
+        await pool.execute("UPDATE users SET role = ? WHERE id = ?", [role, id]);
+        res.json({ success: true, message: `Người dùng đã được đổi sang vai trò ${role}` });
+    } catch (e) {
+        console.error("Update user role error:", e);
+        res.status(500).json({ error: "Cập nhật vai trò thất bại" });
+    }
+};
+

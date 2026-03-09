@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../services/api";
 import BackButton from "../components/common/BackButton";
+import "./Login.css";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -51,72 +52,97 @@ export default function ResetPassword() {
 
   if (!token) {
       return (
-        <div className="max-w-md mx-auto mt-20 p-4 text-center">
-            <div className="card glass p-8">
-                <h2 className="text-xl font-bold text-red-400 mb-4">Lỗi Xác Thực</h2>
-                <p className="text-slate-400 mb-6">Link đặt lại mật khẩu không hợp lệ hoặc bị thiếu.</p>
-                <Link to="/forgot-password" className="btn btn-primary">Gửi lại yêu cầu</Link>
+        <div className="login-page-body">
+          <div className="login-container">
+            <div className="login-card p-10 text-center animate-modal-in">
+                <div className="w-16 h-16 bg-rose-500/20 text-rose-500 rounded-full flex items-center justify-center text-2xl mx-auto mb-6">✕</div>
+                <h2 className="text-2xl font-black text-white mb-4 uppercase tracking-tighter">Lỗi Xác Thực</h2>
+                <p className="text-slate-400 mb-8">{error}</p>
+                <Link to="/forgot-password" size="sm" className="login-btn inline-block">Gửi lại yêu cầu</Link>
             </div>
+          </div>
         </div>
       );
   }
 
   return (
-    <div className="auth-wrapper p-4">
-      <div className="card glass p-8 animate-slide-up">
-        <h2 className="text-2xl font-bold text-white text-center mb-6">Đặt Lại Mật Khẩu</h2>
-
-        {message ? (
-            <div className="bg-green-500/20 text-green-200 p-4 rounded-xl text-center mb-6 border border-green-500/30">
-                <div className="text-xl mb-2">🎉</div>
-                <div className="font-bold mb-2">Thành công!</div>
-                {message}
-                <div className="mt-6">
-                    <Link to="/login" className="btn btn-primary w-full">Đăng Nhập Ngay</Link>
-                </div>
-            </div>
-        ) : (
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                {error && <div className="bg-red-500/20 text-red-200 p-3 rounded text-center">{error}</div>}
-                
-                <div>
-                    <label className="text-muted text-sm mb-1 block">Mật khẩu mới</label>
-                    <input 
-                        type="password" 
-                        className="input" 
-                        value={newPassword} 
-                        onChange={e => setNewPassword(e.target.value)} 
-                        required 
-                        minLength={6}
-                        placeholder="••••••••"
-                    />
+    <div className="login-page-body">
+      <div className="login-container">
+        <div className="login-card animate-modal-in">
+          {message ? (
+              <div className="success-message show">
+                  <div className="success-icon">✓</div>
+                  <h3 className="text-xl font-bold text-white mb-2">Thành công!</h3>
+                  <p className="text-sm text-slate-300 mb-6">{message}</p>
+                  <div className="mt-8">
+                      <Link to="/login" className="login-btn inline-block">Đăng nhập ngay</Link>
+                  </div>
+              </div>
+          ) : (
+              <>
+                <div className="login-header text-center mb-10">
+                    <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Đặt Lại Mật Khẩu</h2>
+                    <p className="text-slate-400 mt-2">Nhập mật khẩu mới cho tài khoản của bạn.</p>
                 </div>
 
-                <div>
-                    <label className="text-muted text-sm mb-1 block">Nhập lại mật khẩu mới</label>
-                    <input 
-                        type="password" 
-                        className="input" 
-                        value={confirmPassword} 
-                        onChange={e => setConfirmPassword(e.target.value)} 
-                        required 
-                        minLength={6}
-                        placeholder="••••••••"
-                    />
-                </div>
+                <form onSubmit={handleSubmit} className="login-form">
+                    {error && <div className="error-message show mb-6">{error}</div>}
+                    
+                    <div className="form-group">
+                        <div className="input-wrapper">
+                            <input 
+                                type="password" 
+                                id="newPassword"
+                                value={newPassword} 
+                                onChange={e => setNewPassword(e.target.value)} 
+                                required 
+                                minLength={6}
+                                placeholder=" "
+                            />
+                            <label htmlFor="newPassword">Mật khẩu mới</label>
+                            <span className="focus-border"></span>
+                        </div>
+                    </div>
 
-                <button 
-                    type="submit" 
-                    className={`btn btn-primary mt-4 py-3 ${loading ? 'loading' : ''}`}
-                    disabled={loading}
-                >
-                    {loading ? 'Đang xử lý...' : 'Xác Nhận Đổi Mật Khẩu'}
-                </button>
-                <div className="text-center mt-4 flex justify-center">
-                    <BackButton fallbackPath="/login" label="Quay lại Đăng nhập" className="!bg-transparent hover:!bg-white/5 !border-none text-slate-400 font-normal shadow-none" />
-                </div>
-            </form>
-        )}
+                    <div className="form-group">
+                        <div className="input-wrapper">
+                            <input 
+                                type="password" 
+                                id="confirmPassword"
+                                value={confirmPassword} 
+                                onChange={e => setConfirmPassword(e.target.value)} 
+                                required 
+                                minLength={6}
+                                placeholder=" "
+                            />
+                            <label htmlFor="confirmPassword">Xác nhận mật khẩu</label>
+                            <span className="focus-border"></span>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-center mt-10">
+                        <button 
+                            type="submit" 
+                            className={`login-btn flex justify-center items-center gap-2 ${loading ? 'loading' : ''}`}
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <div className="btn-loader"></div>
+                            ) : (
+                                <span className="btn-text">Xác Nhận Đổi Mật Khẩu</span>
+                            )}
+                        </button>
+                    </div>
+
+                    <div className="text-center mt-6">
+                        <Link to="/login" className="text-xs font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors">
+                            Quay lại đăng nhập
+                        </Link>
+                    </div>
+                </form>
+              </>
+          )}
+        </div>
       </div>
     </div>
   );

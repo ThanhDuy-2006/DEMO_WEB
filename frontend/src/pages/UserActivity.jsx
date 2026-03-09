@@ -26,6 +26,29 @@ export function UserActivity() {
         endDate: ''
     });
 
+    const getAvatarUrl = (url) => {
+        if (!url || typeof url !== 'string') return null;
+        
+        // Handle local server URLs (localhost/127.0.0.1) and current host
+        if (url.includes("localhost") || url.includes("127.0.0.1") || url.includes(window.location.hostname)) {
+            try {
+                const urlObj = new URL(url);
+                // Return only the pathname to use Vite's /uploads proxy
+                return urlObj.pathname;
+            } catch (e) {
+                // If it's already a relative path but starting with http (invalid URL but contains host)
+                const parts = url.split('/uploads/');
+                if (parts.length > 1) return '/uploads/' + parts[1];
+                return url;
+            }
+        }
+        
+        // If it starts with /uploads, it's already relative
+        if (url.startsWith('/uploads/')) return url;
+        
+        return url;
+    };
+
     useEffect(() => {
         if (user?.role === 'admin') {
             fetchStats();
@@ -320,16 +343,24 @@ export function UserActivity() {
                                     <tr key={u.id} className="hover:bg-white/5 transition-colors group">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="relative">
+                                                <div className="relative shrink-0">
                                                     {u.avatar_url ? (
-                                                        <img src={u.avatar_url} className="w-10 h-10 rounded-xl object-cover border border-white/10" alt="" />
+                                                        <img 
+                                                            src={getAvatarUrl(u.avatar_url)} 
+                                                            className="w-10 h-10 rounded-xl object-cover border border-white/10 shadow-lg" 
+                                                            alt={u.full_name} 
+                                                            onError={(e) => {
+                                                                e.target.onerror = null;
+                                                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name || 'U')}&background=0D1430&color=6366f1&bold=true`;
+                                                            }}
+                                                        />
                                                     ) : (
-                                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-blue-500/20 flex items-center justify-center text-primary font-bold">
-                                                            {u.full_name?.charAt(0) || "U"}
+                                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-blue-500/20 flex items-center justify-center text-primary font-black border border-white/10">
+                                                            {u.full_name?.charAt(0).toUpperCase() || "U"}
                                                         </div>
                                                     )}
                                                     {u.status === 'online' && (
-                                                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1e293b]"></span>
+                                                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#0D1425] shadow-[0_0_10px_rgba(34,197,94,0.5)]"></span>
                                                     )}
                                                 </div>
                                                 <div>

@@ -3,6 +3,7 @@ import { api } from "../services/api";
 import BackButton from "../components/common/BackButton";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../context/ToastContext";
+import { Shield, ShieldAlert, Trash2, UserCheck, UserX } from "lucide-react";
 
 export function UserManagement() {
     const { user } = useAuth();
@@ -12,6 +13,20 @@ export function UserManagement() {
     const [searchTerm, setSearchTerm] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+
+    const getAvatarUrl = (url) => {
+        if (!url) return null;
+        // If it's a full URL to local backend, try to make it relative for proxy compatibility
+        if (url.includes("localhost") || url.includes("127.0.0.1")) {
+            try {
+                const urlObj = new URL(url);
+                return urlObj.pathname;
+            } catch (e) {
+                return url;
+            }
+        }
+        return url;
+    };
 
     // Debounce search and filters to prevent rapid API calls
     useEffect(() => {
@@ -66,6 +81,25 @@ export function UserManagement() {
             fetchUsers();
         } catch (e) {
             toast.error(e.message || "Xóa người dùng thất bại. Có thể do dữ liệu liên quan.");
+        }
+    };
+
+    const handleUpdateRole = async (userId, currentRole) => {
+        if (userId === user.id) {
+            toast.error("Bạn không thể tự đổi quyền của chính mình!");
+            return;
+        }
+
+        const newRole = currentRole === 'admin' ? 'member' : 'admin';
+        const ok = await toast.confirm(`Bạn có chắc muốn ${newRole === 'admin' ? 'nâng lên ADMIN' : 'hạ xuống MEMBER'} người dùng này?`);
+        if (!ok) return;
+
+        try {
+            await api.patch(`/users/admin/${userId}/role`, { role: newRole });
+            toast.success(`Đã cập nhật vai trò sang ${newRole.toUpperCase()}`);
+            fetchUsers();
+        } catch (e) {
+            toast.error(e.message || "Cập nhật vai trò thất bại");
         }
     };
 
@@ -138,23 +172,37 @@ export function UserManagement() {
                                     <tr key={u.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                {u.avatar_url ? (
-                                                    <img src={u.avatar_url} className="w-10 h-10 rounded-full object-cover border border-white/10" alt="" />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-                                                        {u.full_name?.charAt(0) || "U"}
-                                                    </div>
-                                                )}
-                                                <div>
-                                                    <div className="text-white font-medium">{u.full_name}</div>
-                                                    <div className="text-xs text-muted">{u.email}</div>
+                                                <div className="w-10 h-10 shrink-0">
+                                                    {u.avatar_url ? (
+                                                        <img 
+                                                            src={getAvatarUrl(u.avatar_url)} 
+                                                            className="w-10 h-10 rounded-full object-cover border border-white/10 shadow-lg" 
+                                                            alt={u.full_name} 
+                                                            onError={(e) => {
+                                                                e.target.onerror = null;
+                                                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name || 'U')}&background=0D1430&color=6366f1&bold=true`;
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-black text-sm border border-white/10">
+                                                            {u.full_name?.charAt(0).toUpperCase() || "U"}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-white font-bold truncate leading-tight mb-0.5">{u.full_name}</div>
+                                                    <div className="text-[10px] text-slate-500 font-medium truncate">{u.email}</div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 hidden md:table-cell">
-                                            <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${u.role === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                                        <td className="px-6 py-4 hidden md:table-cell text-center">
+                                            <button 
+                                                onClick={() => handleUpdateRole(u.id, u.role)}
+                                                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all hover:scale-105 active:scale-95 cursor-pointer border border-white/5 active:opacity-75 ${u.role === 'admin' ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30' : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'}`}
+                                                title={`Nhấn để ${u.role === 'admin' ? 'hạ cấp thành Member' : 'nâng cấp thành Admin'}`}
+                                            >
                                                 {u.role}
-                                            </span>
+                                            </button>
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${u.status === 'locked' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
@@ -165,19 +213,28 @@ export function UserManagement() {
                                             {new Date(u.created_at).toLocaleDateString('vi-VN')}
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2">
+                                            <div className="flex justify-end items-center gap-3">
                                                 <button 
                                                     onClick={() => handleToggleStatus(u.id, u.status)}
-                                                    className={`btn btn-xs ${u.status === 'locked' ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30'} border-none`}
+                                                    className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 group border ${
+                                                        u.status === 'locked' 
+                                                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white' 
+                                                        : 'bg-orange-500/10 border-orange-500/20 text-orange-400 hover:bg-orange-500 hover:text-white shadow-[0_0_15px_rgba(251,146,60,0.1)]'
+                                                    }`}
+                                                    title={u.status === 'locked' ? 'Mở khóa tài khoản' : 'Khóa tài khoản'}
                                                 >
-                                                    {u.status === 'locked' ? 'Mở khóa' : 'Khóa'}
+                                                    {u.status === 'locked' ? <UserCheck size={16} /> : <UserX size={16} />}
                                                 </button>
+
                                                 <button 
                                                     onClick={() => handleDelete(u.id)}
-                                                    className="btn btn-xs bg-red-500/20 text-red-500 hover:bg-red-500/30 border-none"
+                                                    className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 border bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white shadow-[0_0_15px_rgba(244,63,94,0.1)] ${
+                                                        u.id === user.id ? 'opacity-20 cursor-not-allowed' : ''
+                                                    }`}
                                                     disabled={u.id === user.id}
+                                                    title="Xóa tài khoản vĩnh viễn"
                                                 >
-                                                    Xóa
+                                                    <Trash2 size={16} />
                                                 </button>
                                             </div>
                                         </td>

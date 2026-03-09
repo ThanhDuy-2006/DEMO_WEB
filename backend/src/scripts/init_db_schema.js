@@ -1,7 +1,7 @@
 
 import fs from "fs";
 import path from "path";
-import { connectDB } from "../../utils/db.js";
+import { connectDB } from "../utils/db.js";
 import { fileURLToPath } from "url";
 
 // Get __dirname in ES module

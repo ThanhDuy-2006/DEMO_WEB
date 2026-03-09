@@ -1,0 +1,305 @@
+/* === Grid Background === */
+.personal-card-grid {
+  height: 100%;
+  width: 100%;
+  background-image:
+    linear-gradient(to right, rgba(15, 15, 16, 0.4) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 15, 16, 0.4) 1px, transparent 1px);
+  background-size: 1rem 1rem;
+  background-position: center center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  filter: blur(1px);
+}
+
+/* === Card Wrapper (Outer Effect) === */
+.neon-card-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 0;
+  position: relative;
+  overflow: visible;
+}
+
+@media (min-width: 768px) {
+  .neon-card-container {
+    padding: 80px 0;
+  }
+  .neon-card-wrapper {
+    transform: scale(1.4);
+  }
+}
+
+@media (min-width: 1024px) {
+  .neon-card-container {
+    padding: 100px 0;
+  }
+  .neon-card-wrapper {
+    transform: scale(1.6);
+  }
+}
+
+.neon-card-wrapper {
+  position: relative;
+  width: 320px;
+  height: 200px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  perspective: 1000px;
+}
+
+.card-glow,
+.card-darkBorderBg,
+.card-white,
+.card-border {
+  position: absolute;
+  border-radius: 16px;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.card-darkBorderBg {
+  width: 332px;
+  height: 210px;
+}
+
+.card-darkBorderBg::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(82deg);
+  width: 600px;
+  height: 600px;
+  background-image: conic-gradient(rgba(0, 0, 0, 0),
+      #18116a,
+      rgba(0, 0, 0, 0) 10%,
+      rgba(0, 0, 0, 0) 50%,
+      #6e1b60,
+      rgba(0, 0, 0, 0) 60%);
+  transition: transform 0.6s ease;
+}
+
+.card-white {
+  width: 327px;
+  height: 213px;
+  filter: blur(2px);
+}
+
+.card-white::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(83deg);
+  width: 600px;
+  height: 600px;
+  background-image: conic-gradient(rgba(0, 0, 0, 0) 0%,
+      #a099d8,
+      rgba(0, 0, 0, 0) 8%,
+      rgba(0, 0, 0, 0) 50%,
+      #dfa2da,
+      rgba(0, 0, 0, 0) 58%);
+  filter: brightness(1.4);
+  transition: transform 0.6s ease;
+}
+
+.card-border {
+  width: 323px;
+  height: 199px;
+  filter: blur(0.5px);
+}
+
+.card-border::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(70deg);
+  width: 600px;
+  height: 600px;
+  background-image: conic-gradient(#1c191c,
+      #402fb5 5%,
+      #1c191c 14%,
+      #1c191c 50%,
+      #cf30aa 60%,
+      #1c191c 64%);
+  filter: brightness(1.3);
+  transition: transform 0.6s ease;
+}
+
+.card-glow {
+  width: 374px;
+  height: 300px;
+  filter: blur(30px);
+  opacity: 0.4;
+}
+
+.card-glow::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(60deg);
+  width: 999px;
+  height: 999px;
+  background-image: conic-gradient(#000,
+      #402fb5 5%,
+      #000 38%,
+      #000 50%,
+      #cf30aa 60%,
+      #000 87%);
+  transition: transform 0.6s ease;
+}
+
+/* Hover & focus effects */
+.neon-card-wrapper:hover .card-darkBorderBg::before {
+  transform: translate(-50%, -50%) rotate(-98deg);
+}
+
+.neon-card-wrapper:hover .card-white::before {
+  transform: translate(-50%, -50%) rotate(-97deg);
+}
+
+.neon-card-wrapper:hover .card-border::before {
+  transform: translate(-50%, -50%) rotate(-110deg);
+}
+
+.neon-card-wrapper:hover .card-glow::before {
+  transform: translate(-50%, -50%) rotate(-120deg);
+}
+
+/* === Content Inside === */
+.card-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: rgba(8, 6, 18, 0.92);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 5;
+  padding: 16px;
+  box-sizing: border-box;
+  color: white;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+}
+
+.profile-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.profile-img {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #0ff;
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
+  background: #1a1a2e;
+}
+
+.profile-info {
+    flex: 1;
+}
+
+.profile-info h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #a099d8, #dfa2da);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.profile-info p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #b0a0ff;
+  letter-spacing: 0.5px;
+  text-transform: capitalize;
+}
+
+/* Status badge */
+.status-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(0, 255, 200, 0.2);
+  border: 1px solid #0ffc;
+  border-radius: 12px;
+  color: #0ffc;
+  margin-top: 4px;
+  letter-spacing: 1px;
+}
+
+/* Mini Progress Bar */
+.stat-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  margin: 4px 0 12px;
+  overflow: hidden;
+}
+
+.stat-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #402fb5, #cf30aa);
+  border-radius: 3px;
+  transition: width 1s ease-in-out;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #a099d8;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Action icons */
+.card-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.card-action-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(64, 47, 181, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.card-action-btn:hover {
+  border-color: #cf30aa;
+  box-shadow: 0 0 10px rgba(207, 48, 170, 0.6);
+  transform: scale(1.1);
+}
+
+.card-action-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: #cf30aa;
+  fill: none;
+  stroke-width: 1.5;
+}

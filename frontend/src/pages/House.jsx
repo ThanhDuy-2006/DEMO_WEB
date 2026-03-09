@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
-import { MessageSquare, Camera, Package, Plus, Trash2, X, Shield, ShieldCheck, Check, Ban, ShoppingCart, AlertTriangle, RefreshCw, FileText, Upload, Wallet, History, CreditCard, ChevronRight } from "lucide-react";
+import { MessageSquare, Camera, Package, Plus, Trash2, X, Shield, ShieldCheck, Check, Ban, ShoppingCart, AlertTriangle, RefreshCw, FileText, Upload, Wallet, History, CreditCard, ChevronRight, ShieldAlert, ChevronDown, ChevronUp, Users, Clock } from "lucide-react";
 import { api } from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 import { useSocket } from "../context/SocketContext";
@@ -10,6 +10,7 @@ import { SciFiSearch } from "../components/SciFiSearch";
 import { HouseChat } from "../components/HouseChat";
 import { HouseSkeleton } from "../components/common/Skeleton";
 import ExcelTable from "../components/ExcelManagement/ExcelTable";
+import { ReportModal } from "../components/ReportModal";
 import "./House.css";
 
 const removeAccents = (str) => {
@@ -83,8 +84,9 @@ export function HouseList() {
           <p>Quản lý và truy cập các cộng đồng bạn đang tham gia</p>
         </div>
         {user && (
-          <button onClick={() => setShowCreate(!showCreate)} className="btn-primary-custom" style={{padding: '14px 22px', borderRadius: '12px'}}>
-            + Tạo Nhà mới
+          <button onClick={() => setShowCreate(!showCreate)} className="btn-primary-custom !p-0">
+            <Plus className="svgIcon" />
+            <span className="text">Tạo Nhà mới</span>
           </button>
         )}
       </header>
@@ -172,8 +174,14 @@ export function HouseList() {
                 )}
             </div>
             <div className="flex gap-4 justify-end mt-2">
-              <button type="button" onClick={() => setShowCreate(false)} className="btn-secondary-custom">Hủy</button>
-              <button type="submit" className="btn-primary-custom">Tạo Nhà</button>
+              <button type="button" onClick={() => setShowCreate(false)} className="btn-secondary-custom !p-0">
+                <X className="svgIcon" />
+                <span className="text">Hủy bỏ</span>
+              </button>
+              <button type="submit" className="btn-primary-custom !p-0">
+                <Check className="svgIcon" />
+                <span className="text">Tạo Nhà</span>
+              </button>
             </div>
           </form>
         </div>
@@ -209,8 +217,9 @@ export function HouseList() {
                 <span>👥 {h.member_count || 0} thành viên</span>
                 <span>🛒 {h.product_count || 0} bài đăng</span>
                 </div>
-                <Link to={`/houses/${h.id}`} className="btn-house-action w-full text-center block py-2 rounded-lg bg-primary/20 hover:bg-primary/40 border border-primary/30 transition-all text-xs font-bold uppercase tracking-widest">
-                Truy cập →
+                <Link to={`/houses/${h.id}`} className="btn-primary-custom !w-full !p-0 !rounded-lg !h-10">
+                  <ChevronRight className="svgIcon" />
+                  <span className="text">Truy cập ngay</span>
                 </Link>
             </div>
           </div>
@@ -271,6 +280,7 @@ export function HouseDetail() {
   const { id } = useParams();
   const [house, setHouse] = useState(null);
   const [role, setRole] = useState(null);
+  const [memberStatus, setMemberStatus] = useState(null);
   const [products, setProducts] = useState([]);
   const [pendingProducts, setPendingProducts] = useState([]);
   const [pendingMembers, setPendingMembers] = useState([]);
@@ -294,6 +304,8 @@ export function HouseDetail() {
   const [isEditingCover, setIsEditingCover] = useState(false);
   const [showChat, setShowChat] = useState(false); // Chat state
   const [isImagesHidden, setIsImagesHidden] = useState(false); // Default: Show images
+  const [isMembersVisible, setIsMembersVisible] = useState(false); // Default: Hidden as per user request
+  const [isPendingVisible, setIsPendingVisible] = useState(false); // Default: Hidden as per user request
 
   // Bulk Delete Products
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -302,6 +314,10 @@ export function HouseDetail() {
   // Excel Activity Tracking
   const [activeInExcel, setActiveInExcel] = useState([]); // List of user IDs who have checked something
   const [showOnlyInactive, setShowOnlyInactive] = useState(false);
+
+  // Report State
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportConfig, setReportConfig] = useState({ type: 'house', id: null });
 
   // Handle URL Params for Chat
   const [searchParams] = useSearchParams();
@@ -315,6 +331,7 @@ export function HouseDetail() {
       date: '',
       userId: ''
   });
+  const [excelHistory, setExcelHistory] = useState([]);
 
   const filteredTransactions = transactions.filter(t => {
       // Date filter (matches YYYY-MM-DD)
@@ -387,6 +404,7 @@ export function HouseDetail() {
           setPendingProducts(prev => prev.map(p => 
               p.id === data.productId ? { ...p, quantity: data.newQuantity } : p
           ));
+          loadTransactions(); // Auto-update transaction history across the house
       });
 
       // Wallet update is already handled globally in Layout, 
@@ -404,10 +422,10 @@ export function HouseDetail() {
           socket.off("walletUpdated");
           socket.off("houseUpdated");
       };
-  }, [socket]);
+  }, [socket, id]);
 
   useEffect(() => {
-     if (activeTab === 'transactions') {
+     if (activeTab === 'history') {
          loadTransactions();
      }
   }, [activeTab]);
@@ -425,6 +443,17 @@ export function HouseDetail() {
       try {
           const data = await api.get(`/products/house/${id}/transactions`);
           setTransactions(Array.isArray(data) ? data : []);
+          
+          // Force fetch house if undefined to check type
+          let currentHouse = house;
+          if (!currentHouse) {
+             currentHouse = await api.get(`/houses/${id}`);
+          }
+
+          if (currentHouse?.type === 'excel') {
+              const hist = await api.get(`/houses-excel/${id}/history`);
+              setExcelHistory(Array.isArray(hist) ? hist : []);
+          }
       } catch (e) {
           console.error("Transactions load failed", e);
       }
@@ -433,6 +462,7 @@ export function HouseDetail() {
   const handleBuyProduct = async (p) => {
       if (buyingId) return;
       if (!user) return toast.error("Vui lòng đăng nhập để mua hàng");
+      if (memberStatus === 'blocked') return toast.error("Tài khoản đã bị khóa trong nhà này!");
       if (p.quantity <= 0) return toast.error("Sản phẩm đã hết hàng");
       
       const price = parseFloat(p.unit_price);
@@ -496,20 +526,29 @@ export function HouseDetail() {
         });
         
         // Load user role safely
-        let p2 = Promise.resolve(null);
+        let p2 = Promise.resolve({ role: null, status: null });
         if (user) {
-            p2 = api.get(`/houses/${id}/membership`).then(r => r.role).catch(() => null);
+            p2 = api.get(`/houses/${id}/membership`).catch(() => ({ role: null, status: null }));
         }
 
-        const [prods, myRole] = await Promise.all([p1, p2]);
-        setProducts(Array.isArray(prods) ? prods : []);
-        setRole(myRole);
+        // Load excel history
+        if (h.type === 'excel') {
+             api.get(`/houses-excel/${id}/history`).then(res => setExcelHistory(Array.isArray(res) ? res : [])).catch(() => []);
+        }
 
-        // If owner or admin, load pending products & members
-        if (myRole === 'owner' || user?.role === 'admin') {
+        const [prods, membership] = await Promise.all([p1, p2]);
+        setProducts(Array.isArray(prods) ? prods : []);
+        const currentRole = membership?.role;
+        setRole(currentRole);
+        setMemberStatus(currentRole === 'blocked' ? 'blocked' : membership?.status);
+
+        // Always load members so the list is visible
+        loadMembers(currentRole);
+
+        // If owner or admin, load pending products
+        if (currentRole === 'owner' || user?.role?.toLowerCase() === 'admin') {
              const pending = await api.get(`/products?house_id=${id}&status=pending`).catch(() => []);
              setPendingProducts(Array.isArray(pending) ? pending : []);
-             loadMembers();
         }
 
     } catch (e) {
@@ -518,15 +557,25 @@ export function HouseDetail() {
     }
   };
 
-  const loadMembers = async () => {
+  const loadMembers = async (passedRole) => {
       try {
-        const pMembers = await api.get(`/houses/${id}/members?status=pending`);
-        setPendingMembers(Array.isArray(pMembers) ? pMembers : []);
+        const currentRole = passedRole || role;
+        // Only load pending members if current user is owner/admin
+        if (currentRole === 'owner' || user?.role === 'admin') {
+            const pMembers = await api.get(`/houses/${id}/members?status=pending`).catch(() => []);
+            setPendingMembers(Array.isArray(pMembers) ? pMembers : []);
+        } else {
+            setPendingMembers([]);
+        }
         
         const all = await api.get(`/houses/${id}/members`);
         const safeAll = Array.isArray(all) ? all : [];
-        // Filter to show existing members (including owner, admin)
-        setActiveMembers(safeAll.filter(m => m.role === 'member' || m.role === 'owner' || m.role === 'admin'));
+        // Filter to show existing members (case-insensitive role check)
+        const validRoles = ['member', 'owner', 'admin', 'blocked'];
+        setActiveMembers(safeAll.filter(m => {
+            if (!m.role) return true; // Show members even if role is missing
+            return validRoles.includes(m.role.toLowerCase());
+        }));
       } catch (e) {
           console.error("Load members error:", e);
           setActiveMembers([]); 
@@ -547,7 +596,8 @@ export function HouseDetail() {
   const handleMemberAction = async (userId, status) => {
       try {
           await api.patch(`/houses/${id}/memberships/${userId}`, { status });
-          toast.success(status === 'member' ? "Đã duyệt thành viên!" : "Đã từ chối!");
+          const msgs = { 'member': 'Đã duyệt/mở khóa!', 'rejected': 'Đã từ chối/xóa!', 'blocked': 'Đã khóa thành viên!' };
+          toast.success(msgs[status] || "Thành công!");
           loadMembers();
       } catch (e) {
           toast.error(e.message);
@@ -679,8 +729,9 @@ export function HouseDetail() {
           toast.error(e.message);
       }
   };
-
   const handleAddToCart = async (product) => {
+      if (memberStatus === 'blocked') return toast.error("Tài khoản đã bị khóa!");
+      if (product.quantity <= 0) return toast.error("Sản phẩm đã hết hàng");
       try {
           await api.post("/cart/add", { product_id: product.id, qty: 1 });
           toast.success("Đã thêm vào giỏ hàng!");
@@ -780,12 +831,16 @@ export function HouseDetail() {
   if (!house) return <HouseSkeleton />;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 house-detail-container animate-fade-in relative">
-      <BackButton fallbackPath="/houses" label="Quay lại danh sách" className="mb-4" />
-      
-      {/* 1. HOUSE OVERVIEW */}
-      <section className="house-overview relative overflow-hidden rounded-2xl mb-8 border border-white/10 group">
-        {/* Cover Image Background */}
+    <div className="house-vip-container animate-fade-in relative z-10 w-full min-h-screen">
+      {/* BACKGROUND GRADIENT */}
+      <div className="fixed inset-0 pointer-events-none z-[-1]" style={{ background: 'radial-gradient(circle at 20% 20%, #1b2a4a, #0b1220 60%)' }}></div>
+
+      <div className="topbar">
+        <div className="back-btn" onClick={() => navigate('/houses')}>← Quay lại danh sách</div>
+      </div>
+
+      <div className="banner group">
+        {/* EDIT COVER LOGIC */}
         <div 
             className={`absolute inset-0 z-0 group-hover:opacity-90 transition-opacity select-none ${isEditingCover ? 'cursor-grab active:cursor-grabbing' : ''}`}
             onDoubleClick={() => {
@@ -795,45 +850,35 @@ export function HouseDetail() {
             }}
             onMouseDown={(e) => {
                 if (!isEditingCover) return;
-                
                 const img = e.currentTarget.querySelector('img');
                 if (!img) return;
-
                 e.preventDefault();
                 const startY = e.clientY;
-                
-                // Parse start position safely
                 let currentPosVal = 50;
                 const currentPosStr = img.style.objectPosition.split(' ')[1];
                 if (currentPosStr && currentPosStr.includes('%')) {
                      currentPosVal = parseFloat(currentPosStr);
                 }
-                
                 const startPos = currentPosVal;
-                
                 const onMouseMove = (moveEvent) => {
                     moveEvent.preventDefault();
                     const deltaY = moveEvent.clientY - startY;
-                    const sensitivity = 0.3; 
-                    let newPos = startPos - (deltaY * sensitivity);
+                    let newPos = startPos - (deltaY * 0.3);
                     newPos = Math.max(0, Math.min(100, newPos)); 
                     img.style.objectPosition = `center ${newPos}%`;
                 };
-
                 const onMouseUp = () => {
                    document.removeEventListener('mousemove', onMouseMove);
                    document.removeEventListener('mouseup', onMouseUp);
                 };
-
                 document.addEventListener('mousemove', onMouseMove);
                 document.addEventListener('mouseup', onMouseUp);
             }}
-            title={role === 'owner' || user?.role === 'admin' ? (isEditingCover ? "Kéo để chỉnh" : "Nhấp đúp để chỉnh vị trí") : ""}
         >
             {house.cover_image ? (
                 <img 
                     src={house.cover_image} 
-                    className={`w-full h-full object-cover transition-all duration-0 ${!isEditingCover ? 'pointer-events-none' : ''}`}
+                    className={`w-full h-full object-cover transition-opacity duration-300 ${!isEditingCover ? 'pointer-events-none opacity-50' : 'opacity-100'}`}
                     style={{ objectPosition: house.cover_position || 'center 50%' }}
                     alt="Cover" 
                     draggable={false}
@@ -842,728 +887,396 @@ export function HouseDetail() {
             ) : (
                 <div className="w-full h-full bg-gradient-to-r from-purple-900/40 to-blue-900/40 opacity-50"></div>
             )}
-            <div className={`absolute inset-0 bg-gradient-to-t from-[#0b1020] via-[#0b1020]/80 to-transparent pointer-events-none transition-opacity ${isEditingCover ? 'opacity-0' : 'opacity-100'}`}></div>
-            
-            {(role === 'owner' || user?.role === 'admin') && !isEditingCover && (
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    ↕ Nhấp đúp để chỉnh vị trí
-                </div>
-            )}
-
-            {isEditingCover && (
-                <div 
-                    className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-3 z-50 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full shadow-xl cursor-default"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onMouseUp={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <span className="text-white/80 text-xs flex items-center mr-2 font-medium">
-                        ✨ Kéo ảnh để chỉnh
-                    </span>
-                    <button 
-                        className="btn btn-sm btn-primary border-none shadow-none hover:scale-105 transition-transform"
-                        onClick={async () => {
-                            const img = document.getElementById('cover-img-preview');
-                            const finalPos = img.style.objectPosition.split(' ')[1];
-                             try {
-                                await api.patch(`/houses/${id}/cover-position`, { cover_position: `center ${finalPos}` });
-                                setIsEditingCover(false);
-                                toast.success("Đã lưu vị trí ảnh bìa!");
-                            } catch (err) {
-                                console.error("Failed to save position", err);
-                                toast.error("Lỗi khi lưu vị trí!");
-                            }
-                        }}
-                    >
-                        💾 Lưu
-                    </button>
-                    <button 
-                        className="btn btn-sm bg-white/10 text-white hover:bg-white/20 border-none shadow-none hover:scale-105 transition-transform"
-                        onClick={() => {
-                            setIsEditingCover(false);
-                            const img = document.getElementById('cover-img-preview');
-                            img.style.objectPosition = house.cover_position || 'center 50%';
-                        }}
-                    >
-                        ❌ Hủy
-                    </button>
-                </div>
-            )}
         </div>
 
-        {/* Content */}
-        <div className="relative z-10 p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-            <div>
-            <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-4xl md:text-5xl font-black text-white text-glow tracking-tighter uppercase whitespace-nowrap">{house.name}</h1>
+        {isEditingCover && (
+            <div 
+                className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-3 z-50 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full shadow-xl cursor-default"
+                onMouseDown={(e) => e.stopPropagation()}
+                onMouseUp={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <span className="text-white/80 text-xs flex items-center mr-2 font-medium">✨ Kéo ảnh để chỉnh</span>
+                <button 
+                    className="btn btn-sm btn-primary border-none shadow-none hover:scale-105 transition-transform"
+                    onClick={async () => {
+                        const img = document.getElementById('cover-img-preview');
+                        const finalPos = img.style.objectPosition.split(' ')[1];
+                         try {
+                            await api.patch(`/houses/${id}/cover-position`, { cover_position: `center ${finalPos}` });
+                            setIsEditingCover(false);
+                            toast.success("Đã lưu vị trí ảnh bìa!");
+                        } catch (err) {
+                            console.error("Failed to save position", err);
+                            toast.error("Lỗi khi lưu vị trí!");
+                        }
+                    }}
+                >💾 Lưu</button>
+                <button 
+                    className="btn btn-sm bg-white/10 text-white hover:bg-white/20 border-none shadow-none hover:scale-105 transition-transform"
+                    onClick={() => {
+                        setIsEditingCover(false);
+                        const img = document.getElementById('cover-img-preview');
+                        img.style.objectPosition = house.cover_position || 'center 50%';
+                    }}
+                >❌ Hủy</button>
             </div>
-            <p className="text-gray-300 max-w-2xl text-lg">{house.description || "Hệ thống quản lý vật phẩm và công việc"}</p>
-            <div className="flex gap-4 mt-4 text-sm font-mono text-primary-300">
-                <span className="bg-black/40 px-3 py-1 rounded-full border border-white/10 flex items-center gap-2 shadow-inner">👥 {activeMembers.length} thành viên</span>
-                <span className="bg-black/40 px-3 py-1 rounded-full border border-white/10 flex items-center gap-2 shadow-inner">🛒 {products.length} sản phẩm</span>
+        )}
+
+        <div className="banner-content">
+          <h1 className="text-4xl md:text-5xl font-black text-white text-glow tracking-tighter uppercase whitespace-nowrap">{house.name}</h1>
+          <p className="text-sm mt-2 opacity-80 max-w-lg line-clamp-2">{house.description}</p>
+          <div className="pills mt-4">
+            <div className="pill">👥 {activeMembers.length} thành viên</div>
+            <div className="pill">📦 {products.length} sản phẩm</div>
+            {user && <div className="pill">💰 Ví của tôi: {wallet ? Number(wallet.balance).toLocaleString() : '0'}đ</div>}
+          </div>
+        </div>
+        
+        <div className="actions">
+          {(!role && user?.role?.toLowerCase() !== 'admin' && user) ? (
+              <button className="btn-primary btn-sm px-6 rounded-full" onClick={handleJoin}>Tham gia Nhà</button>
+          ) : (role || user?.role?.toLowerCase() === 'admin') && (
+            <>
+                <div className="action tooltip tooltip-top" data-tip="Trò chuyện" onClick={() => {
+                    if (memberStatus === 'blocked') return toast.error("Bạn đã bị khóa khỏi kênh chat!");
+                    setShowChat(true);
+                }}>💬</div>
                 
-                {/* WALLET DISPLAY (Sci-Fi Style) - READ ONLY */}
-                {user && (
-                    <div className="group relative flex items-center gap-2 bg-indigo-500/10 px-4 py-1 rounded-full border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.1)]">
-                         <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></div>
-                         <Wallet size={14} className="text-indigo-400" />
-                         <span className="text-indigo-400 font-bold uppercase tracking-tighter text-[11px]">Ví của tôi:</span>
-                         <span className="text-white font-black text-xs">{wallet ? Number(wallet.balance).toLocaleString() : '0'}đ</span>
+                <div className="action tooltip tooltip-top" data-tip="Sửa ảnh bìa" onClick={() => document.getElementById('update_cover_modal').showModal()}>📷</div>
+                
+                {house.cover_image && (
+                    <div className="action tooltip tooltip-top" data-tip="Xóa ảnh bìa" onClick={handleDeleteCover} style={{ position: 'relative' }}>
+                        <div className="text-xl opacity-60">🖼️</div>
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-rose-500 font-bold text-lg select-none" style={{ textShadow: '1px 1px 0 rgba(0,0,0,0.8), -1px -1px 0 rgba(0,0,0,0.8), 1px -1px 0 rgba(0,0,0,0.8), -1px 1px 0 rgba(0,0,0,0.8)' }}>✕</div>
                     </div>
                 )}
-            </div>
-            </div>
-            
-            <div className="flex flex-col gap-2 items-start md:items-end w-full md:w-auto">
-                <div className="flex flex-wrap gap-2 items-center justify-start md:justify-end">
-                    {/* CHAT BUTTON */}
-                    {(role === 'owner' || role === 'member' || user?.role === 'admin') && (
-                        <button 
-                            onClick={() => setShowChat(true)}
-                            className="Btn btn-scifi-custom !bg-indigo-600/20 !text-indigo-400 !border-indigo-500/30"
-                        >
-                            <span className="svgIcon"><MessageSquare size={20} /></span>
-                            <span className="text">Trò chuyện</span>
-                        </button>
-                    )}
+                
+                <div className="action tooltip tooltip-top" data-tip="Kho hàng" onClick={() => navigate(`/houses/${id}/warehouse`)}>📦</div>
+                
+                <div className="action tooltip tooltip-top" data-tip="Đăng bán SP" onClick={() => setShowCreate(!showCreate)}>➕</div>
 
-                    {/* Delete Cover (if exists) */}
-                    {(role === 'owner' || role === 'member' || user?.role === 'admin') && house.cover_image && (
-                         <button onClick={handleDeleteCover} className="Btn btn-delete" title="Xóa ảnh bìa">
-                            <span className="svgIcon"><Trash2 size={20} /></span>
-                            <span className="text">Xóa bìa</span>
-                        </button>
-                    )}
-
-                    {/* DELETE HOUSE - OWNER/ADMIN ONLY */}
-                    {(role === 'owner' || user?.role === 'admin') && (
-                        <button 
-                            onClick={handleDeleteHouse} 
-                            className="Btn btn-delete !bg-red-600/20 !text-red-400 !border-red-500/30" 
-                            title="Xóa toàn bộ nhà"
-                        >
-                            <span className="svgIcon"><Trash2 size={20} /></span>
-                            <span className="text">Xóa nhà</span>
-                        </button>
-                    )}
-
-                    {/* ACTIONS FOR OWNER/ADMIN */}
-                    {(role === 'owner' || role === 'member' || user?.role === 'admin') && !isEditingCover && (
-                        <>
-                            {/* Update Cover */}
-                            <button 
-                                onClick={() => document.getElementById('update_cover_modal').showModal()}
-                                className="Btn btn-scifi-custom"
-                            >
-                                <span className="svgIcon"><Camera size={20} /></span>
-                                <span className="text">Sửa ảnh</span>
-                            </button>
-
-                             {/* Warehouse */}
-                             <Link to={`/houses/${id}/warehouse`} className="Btn btn-view !bg-blue-600/20 !text-blue-400 !border-blue-500/30">
-                                <span className="svgIcon"><Package size={20} /></span>
-                                <span className="text">Kho Hàng</span>
-                            </Link>
-
-                            {/* Create Product */}
-                            <button onClick={() => setShowCreate(!showCreate)} className="Btn btn-scifi-custom !bg-blue-600/40 !text-white !border-blue-400/50">
-                                <span className="svgIcon">{showCreate ? <X size={20} /> : <Plus size={20} />}</span>
-                                <span className="text">{showCreate ? 'Đóng' : 'Đăng bán'}</span>
-                            </button>
-
-                            {/* Update Cover Modal */}
-                            <dialog id="update_cover_modal" className="modal">
-                                <div className="modal-box bg-[#1a1f2e] border border-white/10 text-left">
-                                    <form method="dialog">
-                                        <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-                                    </form>
-                                    <h3 className="font-bold text-lg mb-4 text-white">📷 Cập nhật ảnh bìa</h3>
-                                    
-                                    <div className="form-control">
-                                        <label className="label cursor-pointer justify-start gap-4">
-                                            <span className="label-text text-white">Loại ảnh:</span>
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="radio" name="updateCoverType" className="radio radio-sm radio-primary" defaultChecked onClick={() => {
-                                                    document.getElementById('update-cover-file').classList.remove('hidden');
-                                                    document.getElementById('update-cover-url').classList.add('hidden');
-                                                }}/>
-                                                <span className="label-text text-sm">Tải ảnh lên</span>
-                                            </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="radio" name="updateCoverType" className="radio radio-sm radio-primary" onClick={() => {
-                                                    document.getElementById('update-cover-file').classList.add('hidden');
-                                                    document.getElementById('update-cover-url').classList.remove('hidden');
-                                                }}/>
-                                                <span className="label-text text-sm">Link ảnh</span>
-                                            </label>
-                                        </label>
-
-                                        {/* File Input */}
-                                        <input 
-                                            type="file" 
-                                            id="update-cover-file" 
-                                            className="file-input file-input-bordered file-input-md w-full mt-2 bg-black/20" 
-                                            accept="image/*,.jpn,.jpeg,.jpg,.png,.webp,.JPG,.JPN"
-                                        />
-                                        
-                                        {/* URL Input */}
-                                        <input 
-                                            type="text" 
-                                            id="update-cover-url" 
-                                            placeholder="Dán link ảnh tại đây..." 
-                                            className="input input-bordered w-full mt-2 hidden bg-black/20" 
-                                        />
-
-                                        <div className="modal-action">
-                                            <button className="btn btn-primary" onClick={() => {
-                                                 const fileInput = document.getElementById('update-cover-file');
-                                                 const urlInput = document.getElementById('update-cover-url');
-                                                 // Mock event
-                                                 const isUrl = !urlInput.classList.contains('hidden');
-                                                 const mockEvent = {
-                                                     target: {
-                                                         type: isUrl ? 'url' : 'file',
-                                                         value: isUrl ? urlInput.value : '',
-                                                         files: fileInput.files
-                                                     }
-                                                 };
-                                                 handleUpdateCover(mockEvent);
-                                                 document.getElementById('update_cover_modal').close();
-                                            }}>Lưu thay đổi</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </dialog>
-                        </>
-                    )}
-
-                    {/* Join Button for Non-Members */}
-                    {!role && user && (
-                        <button onClick={handleJoin} className="btn-primary btn-sm">Tham gia Nhà</button>
+                <div className="action tooltip tooltip-top" data-tip="Quản lý" onClick={() => {
+                    const nextState = !isMembersVisible;
+                    setIsMembersVisible(nextState);
+                    setIsPendingVisible(nextState);
+                    if (!isMembersVisible) {
+                        setTimeout(() => document.getElementById('management-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+                    }
+                }} style={{ position: 'relative' }}>
+                    👥
+                    {(pendingMembers.length > 0 || (house.type !== 'excel' && pendingProducts.length > 0)) && (
+                        <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[8px] px-1 rounded-full animate-pulse border border-black/50">
+                            {pendingMembers.length + (house.type !== 'excel' ? pendingProducts.length : 0)}
+                        </span>
                     )}
                 </div>
-            </div>
+
+                <div className="action tooltip tooltip-top" data-tip="Lịch sử" onClick={() => navigate(`/houses/${id}/history`)}>📜</div>
+
+                {(role === 'owner' || role === 'admin' || user?.role?.toLowerCase() === 'admin') && (
+                    <div className="action tooltip tooltip-top" data-tip="Xóa nhà" onClick={handleDeleteHouse} style={{backgroundColor: 'rgba(239, 68, 68, 0.2)'}}>🗑</div>
+                )}
+
+                <div className="action tooltip tooltip-top" data-tip="Báo cáo vi phạm" onClick={() => { setReportConfig({ type: 'house', id: id }); setShowReportModal(true); }}>🛡</div>
+            </>
+          )}
         </div>
-      </section>
-       
-       {/* House Chat Modal */}
-       {showChat && (
-           <HouseChat 
-               houseId={id} 
-               currentUserId={user?.id} 
-               onClose={() => setShowChat(false)} 
-               initialConversationId={initialConversationId}
-            />
-       )}
+      </div>
 
-       {/* CREATE FORM (Conditional) */}
-      {showCreate && (
-          <div className="card glass mb-8 animate-fade-in border border-primary/20 shadow-lg shadow-primary/5">
-              <div className="p-4 border-b border-white/10 bg-white/5">
-                  <h3 className="text-lg font-bold text-white">📝 Đăng bán sản phẩm mới</h3>
-              </div>
-              
-              <div className="p-6">
-                  <div className="max-w-xl mx-auto">
-                    <div className="flex flex-col items-center">
-                        <p className="text-sm font-bold text-success mb-4 uppercase tracking-wider text-center">Import Sản phẩm từ Excel & Ảnh</p>
-                        
-                        {/* Drag & Drop Area */}
-                        <div 
-                            className={`border-2 border-dashed rounded-xl p-4 flex flex-col gap-4 transition-all duration-300 ${isDragging ? 'border-blue-500 bg-blue-500/10 scale-[1.02]' : 'border-white/10 bg-black/20'}`}
-                            onDragEnter={handleDrag}
-                            onDragOver={handleDrag}
-                            onDragLeave={handleDrag}
-                            onDrop={handleDrop}
-                        >
-                            <div className="text-center py-2">
-                                <span className="text-2xl mb-1 block">{isDragging ? '📥' : '📄'}</span>
-                                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Kéo thả File Excel hoặc Ảnh vào đây</p>
-                            </div>
-
-                            <div className="h-px bg-white/5 w-full"></div>
-
-                            {/* Excel Options */}
-                            <div>
-                                <label className="text-[10px] font-bold text-white/60 mb-1.5 block uppercase">1. File Excel (.xlsx)</label>
-                                <input 
-                                    type="file" 
-                                    accept=".xlsx, .xls" 
-                                    className="file-input file-input-xs file-input-bordered w-full bg-black/40 text-white" 
-                                    onChange={(e) => setExcelFile(e.target.files[0])}
-                                />
-                                {excelFile && (
-                                    <div className="mt-1 flex items-center gap-1 text-[10px] text-blue-400 font-bold">
-                                         <span>✓</span>
-                                         <span className="truncate">{excelFile.name}</span>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Image Options */}
-                            <div>
-                                 <label className="text-[10px] font-bold text-white/60 mb-1.5 block uppercase">2. Ảnh SP (Nếu cần)</label>
-                                 <input 
-                                    type="file" 
-                                    multiple 
-                                    accept="image/*"
-                                    className="file-input file-input-xs file-input-bordered w-full bg-black/40 text-white"
-                                    onChange={(e) => setImportImages(e.target.files)}
-                                 />
-                                 {importImages?.length > 0 && (
-                                     <div className="mt-1 flex items-center gap-1 text-[10px] text-green-400 font-bold">
-                                         <span>📸</span>
-                                         <span>Đã chọn {importImages.length} ảnh</span>
-                                     </div>
-                                 )}
-                            </div>
-
-                            {/* Submit Button */}
-                            <button 
-                                onClick={handleImportSubmit}
-                                disabled={!excelFile}
-                                className={`btn btn-sm btn-primary w-full disabled:opacity-50 mt-2 ${excelFile ? 'animate-pulse' : ''}`}
-                            >
-                                🚀 Tiến hành Import
-                            </button>
-
-                            {/* Instructions */}
-                            <div className="bg-black/30 p-3 rounded text-[10px] text-muted font-mono text-left">
-                                <div className="flex justify-between items-center mb-2">
-                                     <span className="text-white/40">Yêu cầu cột:</span>
-                                     <a href="/sample_products.xlsx" download className="text-blue-400 hover:underline">⬇ Tải mẫu</a>
-                                </div>
-                                <div className="grid grid-cols-2 gap-x-2 gap-y-1 opacity-60">
-                                    <p className="text-success">Name</p>
-                                    <p className="text-success">Price</p>
-                                    <p className="text-success">Qty</p>
-                                    <p className="text-success">Desc</p>
-                                </div>
-                                
-                                <div className="mt-3 pt-2 border-t border-white/5 space-y-1">
-                                    <p className="text-yellow-500 font-bold">Lưu ý:</p>
-                                    <p>• Điền <span className="text-white">Tên Ảnh</span> vào cột Image.</p>
-                                    <p>• Kéo toàn bộ ảnh vào ô trên.</p>
-                                </div>
-                            </div>
-                        </div>
+       {/* Sửa ảnh bìa modal */}
+       <dialog id="update_cover_modal" className="modal">
+            <div className="modal-box bg-[#1a1f2e] border border-white/10 text-left">
+                <form method="dialog"><button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+                <h3 className="font-bold text-lg mb-4 text-white">📷 Cập nhật ảnh bìa</h3>
+                <div className="form-control">
+                    <label className="label cursor-pointer justify-start gap-4">
+                        <span className="label-text text-white">Loại ảnh:</span>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="updateCoverType" className="radio radio-sm radio-primary" defaultChecked onClick={() => {
+                                document.getElementById('update-cover-file').classList.remove('hidden');
+                                document.getElementById('update-cover-url').classList.add('hidden');
+                            }}/>
+                            <span className="label-text text-sm">Tải ảnh lên</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="updateCoverType" className="radio radio-sm radio-primary" onClick={() => {
+                                document.getElementById('update-cover-file').classList.add('hidden');
+                                document.getElementById('update-cover-url').classList.remove('hidden');
+                            }}/>
+                            <span className="label-text text-sm">Link ảnh</span>
+                        </label>
+                    </label>
+                    <input type="file" id="update-cover-file" className="file-input file-input-bordered file-input-md w-full mt-2 bg-black/20" accept="image/*,.jpn,.jpeg,.jpg,.png,.webp,.JPG,.JPN" />
+                    <input type="text" id="update-cover-url" placeholder="Dán link ảnh tại đây..." className="input input-bordered w-full mt-2 hidden bg-black/20" />
+                    <div className="modal-action">
+                        <button className="btn btn-primary" onClick={() => {
+                                const fileInput = document.getElementById('update-cover-file');
+                                const urlInput = document.getElementById('update-cover-url');
+                                const isUrl = !urlInput.classList.contains('hidden');
+                                const mockEvent = { target: { type: isUrl ? 'url' : 'file', value: isUrl ? urlInput.value : '', files: fileInput.files } };
+                                handleUpdateCover(mockEvent);
+                                document.getElementById('update_cover_modal').close();
+                        }}>Lưu thay đổi</button>
                     </div>
-                  </div>
-              </div>
-          </div>
+                </div>
+            </div>
+        </dialog>
+
+      {/* House Chat Modal */}
+      {showChat && (
+          <HouseChat houseId={id} currentUserId={user?.id} onClose={() => setShowChat(false)} initialConversationId={initialConversationId} />
       )}
 
-      {/* 2. EXCEL TABLE (Optional) */}
+      {/* CREATE FORM (Conditional) */}
+      {showCreate && <div className="section mb-8"><h3 className="text-lg font-bold text-white mb-4">📝 Đăng bán sản phẩm mới</h3><div className="max-w-xl mx-auto"><div className="flex flex-col items-center"><p className="text-sm font-bold text-success mb-4 uppercase tracking-wider text-center">Import Sản phẩm từ Excel & Ảnh</p><div className={`border-2 border-dashed rounded-xl p-4 flex flex-col gap-4 w-full transition-all duration-300 ${isDragging ? 'border-blue-500 bg-blue-500/10 scale-[1.02]' : 'border-white/10 bg-black/20'}`} onDragEnter={handleDrag} onDragOver={handleDrag} onDragLeave={handleDrag} onDrop={handleDrop}><div className="text-center py-2"><span className="text-2xl mb-1 block">{isDragging ? '📥' : '📄'}</span><p className="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Kéo thả File Excel hoặc Ảnh vào đây</p></div><div className="h-px bg-white/5 w-full"></div><div><label className="text-[10px] font-bold text-white/60 mb-1.5 block uppercase">1. File Excel (.xlsx)</label><input type="file" accept=".xlsx, .xls" className="file-input file-input-xs file-input-bordered w-full bg-black/40 text-white" onChange={(e) => setExcelFile(e.target.files[0])} />{excelFile && (<div className="mt-1 flex items-center gap-1 text-[10px] text-blue-400 font-bold"><span>✓</span><span className="truncate">{excelFile.name}</span></div>)}</div><div><label className="text-[10px] font-bold text-white/60 mb-1.5 block uppercase">2. Ảnh SP (Nếu cần)</label><input type="file" multiple accept="image/*" className="file-input file-input-xs file-input-bordered w-full bg-black/40 text-white" onChange={(e) => setImportImages(e.target.files)} />{importImages?.length > 0 && (<div className="mt-1 flex items-center gap-1 text-[10px] text-green-400 font-bold"><span>📸</span><span>Đã chọn {importImages.length} ảnh</span></div>)}</div><button onClick={handleImportSubmit} disabled={!excelFile} className={`btn btn-sm btn-primary w-full disabled:opacity-50 mt-2 ${excelFile ? 'animate-pulse' : ''}`}>🚀 Tiến hành Import</button></div></div></div></div>}
+
+      {/* EXCEL TABLE */}
       {house.type === 'excel' && (
-          <section className="mb-8">
-              <ExcelTable 
-                houseId={id} 
-                myRole={role || (user?.role === 'admin' ? 'admin' : null)} 
-                user={user} 
-                onActivityChange={(userIds) => setActiveInExcel(userIds)}
-              />
-          </section>
+          <div className="section mb-8">
+              <ExcelTable houseId={id} myRole={role || (user?.role === 'admin' ? 'admin' : null)} user={user} onActivityChange={(userIds) => setActiveInExcel(userIds)} hideHistory={true} />
+          </div>
       )}
 
-      {/* 3. MAIN LAYOUT (Columns) */}
-      <section className={`house-detail-layout ${(role === 'owner' || user?.role === 'admin') ? 'with-approve' : ''} ${house.type === 'excel' ? 'excel-mode' : ''}`}>
+      {house.type !== 'excel' && (
+        <div className="section mb-8" id="management-section">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <div className="flex items-center gap-4">
+              <h2 className="text-2xl font-bold text-white">Quản Lý</h2>
+            </div>
 
-        {/* LEFT: MEMBERS */}
-        <aside className="members-sidebar">
-          <h3>👥 Thành viên</h3>
-          
-          {/* Member Search */}
-          <div className="mb-4 space-y-3">
-              <SciFiSearch 
-                  placeholder="Tìm..." 
-                  value={memberSearch}
-                  onChange={(e) => setMemberSearch(e.target.value)}
-                  showFilter={false}
-              />
-              {house?.type === 'excel' && (
-                  <button 
-                    onClick={() => setShowOnlyInactive(!showOnlyInactive)}
-                    className={`text-[10px] uppercase font-bold tracking-tighter w-full py-1.5 rounded border transition-colors ${showOnlyInactive ? 'bg-orange-500/20 border-orange-500/50 text-orange-400' : 'bg-white/5 border-white/10 text-slate-500 hover:text-slate-300'}`}
-                  >
-                    {showOnlyInactive ? '⚡ Đang hiện: Không hoạt động' : `🔍 Lọc: Chưa hoạt động (${activeMembers.filter(m => !activeInExcel.includes(m.id)).length})`}
-                  </button>
-              )}
+          <div className="flex items-center gap-2">
+            <div className="flex bg-black/20 rounded-xl border border-white/10 overflow-hidden">
+               <div className="flex items-center px-3 border-r border-white/10 text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></div>
+               <input type="text" placeholder="Tên" className="bg-transparent px-3 py-2 text-xs text-white outline-none w-24 border-r border-white/10" />
+               <input type="text" placeholder="Giá" className="bg-transparent px-3 py-2 text-xs text-white outline-none w-20" />
+            </div>
+            {(role === 'owner' || role === 'member' || user?.role === 'admin') && (
+              <button onClick={() => setShowCreate(!showCreate)} className="btn btn-sm bg-[#6d5dfc] hover:bg-[#5b4dfc] text-white border-none rounded-xl px-4 flex items-center gap-2 capitalize">
+                <span className="text-lg">+</span> Thêm sản phẩm
+              </button>
+            )}
           </div>
+        </div>
 
-          <div 
-            ref={memberSidebarRef}
-            className="flex flex-col relative"
-            style={{ height: `${memberSidebarHeight}px` }}
-          >
-            <div className="flex-1 overflow-y-auto custom-scrollbar-v2 pr-1">
-                {filteredMembers.map(m => (
-                  <div key={m.id} className={`member-item ${m.role === 'owner' ? 'admin' : ''} ${house?.type === 'excel' && !activeInExcel.includes(m.id) ? 'opacity-60' : ''}`}>
-                    <div className="flex flex-col">
-                      <span className="text-sm">{m.role === 'owner' ? '👑' : '🟢'} {m.full_name || m.email}</span>
-                      {(house?.type === 'excel' && !activeInExcel.includes(m.id)) && (
-                          <span className="text-[9px] text-orange-500/70 font-bold uppercase tracking-widest leading-none mt-0.5">Không hoạt động</span>
-                      )}
-                    </div>
-                    {/* Delete button only if admin/owner and not self */}
-                    {( (role === 'owner' || user?.role === 'admin') && m.id !== user?.id && m.role !== 'owner' ) && (
-                        <button onClick={() => handleDeleteMember(m.id)} className="ml-auto text-xs text-red-500 hover:text-red-400">✕</button>
-                    )}
-                  </div>
+        {activeTab === 'products' && (
+          <div className="overflow-x-auto w-full responsive-table-wrapper">
+            <table className="w-full text-sm min-w-[700px]">
+              <thead>
+                <tr>
+                  <th className="!opacity-70 !font-semibold">TÊN</th>
+                  <th className="!opacity-70 !font-semibold">SL</th>
+                  <th className="!opacity-70 !font-semibold">TIỀN (Đ)</th>
+                  <th className="!opacity-70 !font-semibold">IMG URL</th>
+                  <th className="!opacity-70 !font-semibold text-right">Thêm <span className="bg-emerald-500/20 text-emerald-400 px-1 rounded ml-1">✓</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.length === 0 && <tr><td colSpan="5" className="text-center py-10 opacity-40">Chưa có sản phẩm.</td></tr>}
+                {products.map(p => (
+                  <tr key={p.id} className="hover:bg-white/5 transition-colors group">
+                    <td>
+                      <div className="font-bold text-white">{p.name}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">{p.description}</div>
+                    </td>
+                    <td><span className="font-bold text-[#facc15]">{p.quantity}</span></td>
+                    <td>
+                      <div className="price">{Number(p.price).toLocaleString()}</div>
+                      <div className="text-[9px] text-slate-500 opacity-70">(Chưa chia)</div>
+                    </td>
+                    <td>
+                       <div className="text-xs text-white font-medium">{p.owner_name}</div>
+                       <div className="text-[9px] bg-amber-500/20 text-amber-500 px-1 rounded w-fit font-bold uppercase">ADMIN</div>
+                    </td>
+                    <td className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <button className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center hover:bg-emerald-500/20 transition-all"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+                          <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} className="w-8 h-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20 transition-all"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>
+                        </div>
+                    </td>
+                  </tr>
                 ))}
-                {filteredMembers.length === 0 && <p className="text-muted text-sm px-2">Không tìm thấy.</p>}
-            </div>
-
-            {/* Tap Bar for Resizing */}
-            <div 
-                className={`excel-grab-bar min-h-[16px] !h-[16px] !rounded-b-xl !bg-white/5 border-none mt-2 ${isResizingMembers ? 'resizing' : ''}`}
-                onMouseDown={startResizingMembers}
-            >
-                <div className="grab-handle !gap-1">
-                    <div className="dots !gap-1">
-                        <span className="!w-1 !h-1"></span><span className="!w-1 !h-1"></span><span className="!w-1 !h-1"></span>
-                    </div>
-                </div>
-            </div>
+              </tbody>
+            </table>
           </div>
-        </aside>
+        )}
+        </div>
+      )}
 
-        {/* CENTER: PRODUCTS & HISTORY */}
-        <main className="products-center">
-            {/* TABS HEADER */}
-            <div className="flex gap-1 bg-black/40 p-1.5 rounded-2xl border border-white/5 mb-6 w-fit backdrop-blur-md">
-                 {house.type !== 'excel' && (
-                     <button 
-                        onClick={() => setActiveTab('products')}
-                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'products' ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-105' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
-                     >
-                        <Package size={14} />
-                        Gian hàng
-                     </button>
-                 )}
-                 <button 
-                    onClick={() => setActiveTab('transactions')}
-                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'transactions' || (house.type === 'excel' && activeTab === 'products') ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 scale-105' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
-                 >
-                    <History size={14} />
-                    {house.type === 'excel' ? 'Lịch sử Ví' : 'Lịch sử mua bán'}
-                 </button>
+      {(isMembersVisible || isPendingVisible) && (
+        <div className="space-y-6 mb-8 mt-4 animate-fade-in" id="management-section">
+            <div className="flex items-center gap-3 px-2">
+                <div className="w-10 h-10 rounded-2xl bg-[#6d5dfc]/20 flex items-center justify-center text-[#6d5dfc]">
+                    <Users className="w-5 h-5" />
+                </div>
+                <div>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tighter">Quản lý Nhà</h2>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Members & Approvals Control Center</p>
+                </div>
+                <button 
+                    onClick={() => { setIsMembersVisible(false); setIsPendingVisible(false); }}
+                    className="ml-auto w-8 h-8 rounded-full bg-white/5 text-slate-500 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-500 transition-all"
+                >
+                    <X className="w-4 h-4" />
+                </button>
             </div>
 
-            {(activeTab === 'products' && house.type !== 'excel') ? (
-                <>
-                <div className="products-header flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="flex items-center gap-3">
-                     <span className="text-2xl">✨</span>
-                     <div>
-                        <h2 className="text-2xl font-bold text-white leading-none">Sản phẩm</h2>
-                        <span className="text-xs text-slate-400 font-mono">trong Nhà</span>
-                     </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                     {/* Holo Toggle */}
-                    <div className="toggle-container scale-75 origin-right">
-                        <div className="toggle-wrap">
-                            <input 
-                                className="toggle-input" 
-                                id="holo-toggle-house" 
-                                type="checkbox" 
-                                checked={isImagesHidden}
-                                onChange={(e) => setIsImagesHidden(e.target.checked)}
-                            />
-                            <label className="toggle-track" htmlFor="holo-toggle-house">
-                                <div className="track-lines"><div className="track-line"></div></div>
-                                <div className="toggle-thumb">
-                                    <div className="thumb-core"></div>
-                                    <div className="thumb-inner"></div>
-                                    <div className="thumb-scan"></div>
-                                    <div className="thumb-particles">
-                                        {[...Array(5)].map((_, i) => <div key={i} className="thumb-particle"></div>)}
-                                    </div>
-                                </div>
-                                <div className="toggle-data">
-                                    <div className="data-text off" style={{fontSize: '10px'}}>ẢNH: BẬT</div>
-                                    <div className="data-text on" style={{fontSize: '10px'}}>ẢNH: TẮT</div>
-                                    <div className="status-indicator off"></div>
-                                    <div className="status-indicator on"></div>
-                                </div>
-                                <div className="energy-rings">
-                                    {[...Array(3)].map((_, i) => <div key={i} className="energy-ring"></div>)}
-                                </div>
-                                <div className="interface-lines">
-                                    {[...Array(6)].map((_, i) => <div key={i} className="interface-line"></div>)}
-                                </div>
-                                <div className="toggle-reflection"></div>
-                                <div className="holo-glow"></div>
-                            </label>
+            <div className="grid md:grid-cols-4 grid-cols-1 gap-6">
+                {/* Cột Thành viên (vẫn 1/4) */}
+                <div className="member md:col-span-1 border border-white/10 bg-black/40 rounded-3xl overflow-hidden h-fit backdrop-blur-xl">
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-blue-400" />
+                            <h3 className="text-sm font-bold text-white uppercase tracking-tight">Thành viên</h3>
+                        </div>
+                        <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full font-black">{activeMembers.length}</span>
+                    </div>
+                    
+                    <div className="p-6 space-y-4">
+                        <div className="relative">
+                            <input type="text" placeholder="Tìm tên..." className="w-full bg-black/20 text-white text-xs border border-white/10 rounded-xl px-10 py-3 outline-none focus:border-[#6d5dfc]/50 transition-all font-medium" value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} />
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></div>
+                        </div>
+            
+                        <div className="space-y-3 overflow-y-auto max-h-[400px] pr-2 scrollbar-hide">
+                            {filteredMembers.map(m => (
+                              <div key={m.id} className="bg-white/5 border border-white/5 rounded-2xl p-3 flex justify-between items-center group hover:bg-white/10 transition-all cursor-pointer">
+                                  <div className="flex items-center gap-3">
+                                      <div className="w-9 h-9 rounded-xl bg-orange-200 flex items-center justify-center font-black text-xs overflow-hidden">
+                                         {m.full_name ? <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(m.full_name)}&background=${m.role === 'owner' ? 'ff4444' : 'ffcc33'}&color=${m.role === 'owner' ? 'fff' : '000'}`} className="w-full h-full" /> : '👤'}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="text-xs font-bold text-white truncate max-w-[100px]">{m.full_name || m.email}</div>
+                                        <div className={`text-[8px] font-black uppercase tracking-tighter ${m.role === 'owner' ? 'text-rose-500' : (m.role === 'blocked' ? 'text-slate-500' : (m.role === 'admin' ? 'text-amber-500' : 'text-blue-400'))}`}>
+                                          {m.role === 'owner' ? 'CHỦ' : (m.role === 'blocked' ? 'KHÓA' : (m.role === 'admin' ? 'ADM' : 'MBR'))}
+                                        </div>
+                                      </div>
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-2">
+                                      {((role === 'owner' || user?.role?.toLowerCase() === 'admin') && m.id !== user?.id && m.role !== 'owner') && (
+                                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                              <button onClick={(e) => { e.stopPropagation(); handleDeleteMember(m.id); }} className="w-6 h-6 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"><X className="w-3 h-3" /></button>
+                                              <button onClick={(e) => { e.stopPropagation(); handleMemberAction(m.id, m.role === 'blocked' ? 'member' : 'blocked'); }} className={`w-6 h-6 rounded-lg ${m.role === 'blocked' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-500'} flex items-center justify-center hover:bg-current hover:text-white transition-all`}>
+                                                  {m.role === 'blocked' ? <Check className="w-3 h-3" /> : <Ban className="w-3 h-3" />}
+                                              </button>
+                                          </div>
+                                      )}
+                                      <ChevronRight className="w-3 h-3 text-slate-600 group-hover:hidden" />
+                                  </div>
+                              </div>
+                            ))}
                         </div>
                     </div>
-
-                    {(role === 'member' || role === 'owner' || user?.role === 'admin') && products.length > 0 && (
-                        <button 
-                            onClick={() => { setIsSelectMode(!isSelectMode); setProductSelectedIds([]); }}
-                            className={`Btn btn-scifi-custom !scale-90 ${isSelectMode ? 'active !bg-blue-600 !text-white' : ''}`}
-                            title={isSelectMode ? 'Xong' : 'Chọn nhiều'}
-                        >
-                            <span className="svgIcon">{isSelectMode ? <ShieldCheck size={18} /> : <Shield size={18} />}</span>
-                            <span className="text">{isSelectMode ? 'Xong' : 'Chọn nhiều'}</span>
-                        </button>
-                    )}
                 </div>
-            </div>
 
-            {/* Scrollable Grid Area */}
-            <div className="products-scroll-wrapper custom-scrollbar">
-                <div className="products-grid">
-                    {products.map(p => (
-                        <div 
-                            key={p.id} 
-                            className={`product-card-manage ${isSelectMode ? 'selecting' : ''} ${productSelectedIds.includes(p.id) ? 'selected' : ''}`}
-                            onClick={() => isSelectMode && toggleProductSelect(p.id)}
-                        >
-                            <div className="product-card-manage-inner">
-                                {/* Image Area */}
-                                {!isImagesHidden && (
-                                    <div className="card-img-container">
-                                        {p.image_url ? (
-                                            <img src={p.image_url.startsWith('http') ? p.image_url : `${p.image_url}`} onError={(e) => e.target.style.display = 'none'} />
-                                        ) : (
-                                            <div className="no-img">🎁</div>
-                                        )}
-                                    </div>
-                                )}
-                                
-                                <div className="product-card-body">
-                                    <div className="product-info-row mb-1">
-                                         <h3 className="product-name" title={p.name}>{p.name}</h3>
-                                         <div className="flex flex-col items-end">
-                                            <div className="product-price">{Number(p.price).toLocaleString()}đ</div>
-                                            {(p.quantity > 1 || (p.unit_price && p.unit_price != p.price)) && (
-                                                <div className="text-[10px] text-emerald-400 font-black uppercase tracking-tighter opacity-80">
-                                                    {Number(p.unit_price).toLocaleString()}đ / cái
-                                                </div>
+                {/* Cột Yêu cầu (3/4) */}
+                <div className="md:col-span-3 space-y-6">
+                    {(role === 'owner' || role === 'admin' || user?.role?.toLowerCase() === 'admin') ? (
+                        <div className="border border-white/10 bg-black/40 rounded-3xl overflow-hidden backdrop-blur-xl h-full">
+                            <div className="p-6 border-b border-white/5 flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-rose-400" />
+                                    <h3 className="text-sm font-bold text-white uppercase tracking-tight">Yêu cầu chờ duyệt</h3>
+                                </div>
+                                <div className="flex gap-2">
+                                    <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded-full font-black">
+                                        {pendingMembers.length + (house.type !== 'excel' ? pendingProducts.length : 0)} MỤC
+                                    </span>
+                                </div>
+                            </div>
+      
+                            <div className="p-6">
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    {/* Duyệt Thành Viên */}
+                                    <div className="space-y-4">
+                                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">Thành viên mới</h4>
+                                        <div className="space-y-3 overflow-y-auto max-h-[300px] pr-1 scrollbar-hide">
+                                            {pendingMembers.length === 0 ? (
+                                                <div className="py-20 text-center opacity-20 text-[10px] uppercase font-black tracking-widest border border-dashed border-white/10 rounded-2xl">Trống</div>
+                                            ) : (
+                                                pendingMembers.map(m => (
+                                                    <div key={m.id} className="flex justify-between items-center p-3 rounded-2xl bg-white/5 border border-white/5 group hover:border-[#6d5dfc]/30 transition-all">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-lg bg-[#6d5dfc]/20 flex items-center justify-center text-xs">👤</div>
+                                                            <div className="min-w-0">
+                                                                <div className="text-xs font-bold text-white truncate max-w-[120px]">{m.full_name || m.email}</div>
+                                                                <div className="text-[9px] text-slate-500 truncate max-w-[120px]">{m.email}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-1.5">
+                                                            <button onClick={() => handleMemberAction(m.id, 'member')} className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all">✓</button>
+                                                            <button onClick={() => handleMemberAction(m.id, 'rejected')} className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">✕</button>
+                                                        </div>
+                                                    </div>
+                                                ))
                                             )}
-                                         </div>
-                                    </div>
-
-                                    <div className="product-meta mb-3">
-                                        <div className="flex items-center gap-1.5 overflow-hidden">
-                                            <div className="w-5 h-5 rounded bg-white/10 flex items-center justify-center text-[10px]">👤</div>
-                                            <span className="text-slate-400 text-xs truncate">{p.owner_name}</span>
-                                        </div>
-                                        <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter ${p.quantity > 0 ? 'bg-slate-800 text-slate-300' : 'bg-red-500/20 text-red-400 animate-pulse'}`}>
-                                            📦 {p.quantity > 0 ? `Còn: ${p.quantity}` : 'Hết hàng'}
                                         </div>
                                     </div>
-
-                                    {!isSelectMode ? (
-                                        <div className="flex flex-col gap-2">
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); handleBuyProduct(p); }}
-                                                disabled={p.quantity <= 0 || buyingId === p.id}
-                                                className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all
-                                                    ${p.quantity > 0 
-                                                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 active:scale-95' 
-                                                        : 'bg-white/5 text-slate-500 cursor-not-allowed'}`}
-                                            >
-                                                {buyingId === p.id ? (
-                                                    <span className="loading loading-spinner loading-xs"></span>
+            
+                                    {/* Duyệt Sản Phẩm */}
+                                    {house.type !== 'excel' && (
+                                        <div className="space-y-4 border-l border-white/5 pl-6">
+                                            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">Sản phẩm ký gửi</h4>
+                                            <div className="space-y-3 overflow-y-auto max-h-[300px] pr-1 scrollbar-hide">
+                                                {pendingProducts.length === 0 ? (
+                                                    <div className="py-20 text-center opacity-20 text-[10px] uppercase font-black tracking-widest border border-dashed border-white/10 rounded-2xl">Trống</div>
                                                 ) : (
-                                                    <>
-                                                        <CreditCard size={14} />
-                                                        Mua 1
-                                                    </>
+                                                    pendingProducts.map(p => (
+                                                        <div key={p.id} className="flex justify-between items-center p-3 rounded-2xl bg-white/5 border border-white/5 group hover:border-indigo-500/30 transition-all">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-xs">📦</div>
+                                                                <div className="min-w-0">
+                                                                    <div className="text-xs font-bold text-white truncate max-w-[100px]">{p.name}</div>
+                                                                    <div className="text-[9px] text-indigo-400 font-black uppercase">{Number(p.price).toLocaleString()}đ</div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-1.5">
+                                                                <button onClick={() => handleApproveOne(p.id, 'active')} className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all">✓</button>
+                                                                <button onClick={() => handleApproveOne(p.id, 'rejected')} className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">✕</button>
+                                                            </div>
+                                                        </div>
+                                                    ))
                                                 )}
-                                            </button>
-                                            
-                                            <div className="grid grid-cols-4 gap-2">
-                                                <button className="h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 transition-all flex items-center justify-center" title="Xem chi tiết" onClick={(e) => { e.stopPropagation(); navigate(`/products/${p.id}`); }}>
-                                                    <Package size={14} />
-                                                </button>
-                                                <button className="h-9 rounded-xl bg-white/5 hover:bg-pink-500/20 text-slate-400 hover:text-pink-400 transition-all flex items-center justify-center" title="Thêm vào giỏ" onClick={(e) => { e.stopPropagation(); handleAddToCart(p); }}>
-                                                    <ShoppingCart size={14} />
-                                                </button>
-                                                {(role === 'owner' || user?.role === 'admin') && (
-                                                    <button className="h-9 rounded-xl bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all flex items-center justify-center" title="Xóa" onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }}>
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                )}
-                                                <button className="h-9 rounded-xl bg-white/5 hover:bg-amber-500/20 text-slate-400 hover:text-amber-400 transition-all flex items-center justify-center" title="Kho" onClick={(e) => { e.stopPropagation(); navigate(`/inventories/${p.id}`); }}>
-                                                    <span className="text-[10px] font-bold">💎</span> 
-                                                </button>
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <div className="mt-auto text-center py-2 bg-black/20 rounded text-xs font-bold text-blue-400 uppercase tracking-wider">
-                                            {productSelectedIds.includes(p.id) ? 'Selected' : 'Select'}
                                         </div>
                                     )}
                                 </div>
                             </div>
                         </div>
-                    ))}
-
-                </div>
-            </div>
-            </>
-            ) : (
-                /* TRANSACTIONS TAB */
-                <div className="flex-1 overflow-hidden flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center px-4 gap-4">
-                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                            <History className="text-indigo-400" />
-                            Toàn bộ giao dịch trong Nhà
-                        </h3>
-                        
-                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                            {/* Date Filter */}
-                            <div className="relative group">
-                                <input 
-                                    type="date" 
-                                    className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500/50 transition-all custom-calendar-icon"
-                                    value={transactionFilters.date}
-                                    onChange={(e) => setTransactionFilters(prev => ({ ...prev, date: e.target.value }))}
-                                />
-                                {transactionFilters.date && (
-                                    <button 
-                                        onClick={() => setTransactionFilters(prev => ({ ...prev, date: '' }))}
-                                        className="absolute right-8 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-[10px]"
-                                    >✕</button>
-                                )}
+                    ) : (
+                        /* Giao diện cho member thường khi mở Quản lý (Chỉ xem thành viên) */
+                        <div className="h-full border border-white/10 bg-black/40 rounded-3xl backdrop-blur-xl flex flex-col items-center justify-center p-10 text-center space-y-4">
+                            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-slate-500">
+                                <ShieldAlert className="w-8 h-8" />
                             </div>
-
-                            {/* Member Filter */}
-                            <select 
-                                className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500/50 transition-all"
-                                value={transactionFilters.userId}
-                                onChange={(e) => setTransactionFilters(prev => ({ ...prev, userId: e.target.value }))}
-                            >
-                                <option value="" className="bg-[#1a1f2e]">Lọc theo người...</option>
-                                {activeMembers.map(m => (
-                                    <option key={m.id} value={m.id} className="bg-[#1a1f2e]">
-                                        {m.full_name || m.email}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <button onClick={loadTransactions} className="btn btn-ghost btn-sm text-[10px] uppercase tracking-widest font-bold text-indigo-400 hover:bg-indigo-500/10 h-auto py-2">
-                                <RefreshCw size={12} className="mr-1" /> Làm mới
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto custom-scrollbar-v2 pr-2 h-[600px] mt-4">
-                        <div className="space-y-3">
-                            {filteredTransactions.map(t => (
-                                <div key={t.id} className="group flex items-center gap-4 bg-white/5 hover:bg-white/10 p-4 rounded-2xl border border-white/5 transition-all">
-                                     <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-xl shadow-inner">🛍️</div>
-                                     <div className="flex-1 min-w-0">
-                                         <div className="flex items-center gap-2 mb-0.5">
-                                             <span className="text-sm font-bold text-white truncate">{t.buyer_name}</span>
-                                             <span className="text-[10px] text-slate-500 uppercase tracking-tighter">
-                                                 {t.type === 'REFUND' ? 'đã nhận hoàn tiền' : 'đã mua từ'}
-                                             </span>
-                                             {t.seller_name && <span className="text-[10px] text-primary/80 font-bold">{t.seller_name}</span>}
-                                         </div>
-                                          <div className="text-sm text-indigo-400 font-medium truncate">{t.product_name || t.description}</div>
-                                         <div className="flex flex-col text-[10px] mt-1 font-mono leading-tight">
-                                            <span className="text-slate-400 font-bold">{new Date(t.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
-                                            <span className="text-slate-500 opacity-60">{new Date(t.created_at).toLocaleDateString('vi-VN')}</span>
-                                         </div>
-                                     </div>
-                                     <div className="text-right">
-                                          <div className={`text-sm font-black ${t.type === 'REFUND' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                              {t.type === 'REFUND' ? '+' : '-'}{Number(t.total_price).toLocaleString()}đ
-                                          </div>
-                                         <div className="text-[9px] text-slate-500 uppercase font-bold tracking-widest">Ví User</div>
-                                     </div>
-                                </div>
-                            ))}
-                            {transactions.length === 0 && (
-                                <div className="text-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10">
-                                     <CreditCard size={48} className="mx-auto mb-4 text-slate-700" />
-                                     <p className="text-slate-500 font-mono text-sm uppercase tracking-widest">Chưa có giao dịch nào được ghi nhận</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </main>
-
-        {/* RIGHT: APPROVE BOX */}
-        {(role === 'owner' || user?.role === 'admin') && (
-            <aside className="approve-box">
-                <div className="approve-header">
-                    <h3>⏳ {house.type === 'excel' ? 'Duyệt thành viên' : 'Cần duyệt'}</h3>
-                    {house.type !== 'excel' && pendingProducts.length > 0 && <span className="count-badge">{pendingProducts.length}</span>}
-                </div>
-
-                <div className="approve-list">
-                    {house.type !== 'excel' && pendingProducts.map(p => (
-                        <div key={p.id} className="approve-item">
-                            <div className="approve-item-info min-w-0 flex-1 mr-2">
-                                <strong className="truncate">{p.name}</strong>
-                                <p className="truncate">Đăng bởi: {p.owner_name}</p>
-                                <p className="text-xs text-yellow-500">{Number(p.price).toLocaleString()}đ</p>
-                            </div>
-                            <div className="approve-actions">
-                                <button onClick={() => handleApproveOne(p.id, 'active')} className="btn-accept" title="Duyệt">✓</button>
-                                <button onClick={() => handleApproveOne(p.id, 'rejected')} className="btn-reject" title="Từ chối">✕</button>
+                            <div>
+                                <h3 className="text-lg font-bold text-white uppercase tracking-tight">Khu vực hạn chế</h3>
+                                <p className="text-xs text-slate-500 max-w-[300px]">Chỉ có Chủ nhà và Admin mới có quyền truy cập vào bảng điều khiển duyệt yêu cầu.</p>
                             </div>
                         </div>
-                    ))}
-                    {(house.type !== 'excel' && pendingProducts.length === 0) && <p className="text-center text-muted text-sm py-4">Không có yêu cầu nào.</p>}
-                    
-                    {pendingMembers.length > 0 && (
-                        <>
-                            <div className="bg-white/5 p-2 text-xs font-bold text-muted uppercase mt-4 mb-2 text-center">Thành viên chờ ({pendingMembers.length})</div>
-                            {pendingMembers.map(m => (
-                                <div key={m.id} className="approve-item">
-                                    <div className="approve-item-info min-w-0 flex-1">
-                                        <strong>{m.full_name}</strong>
-                                        <p>{m.email}</p>
-                                    </div>
-                                    <div className="approve-actions">
-                                        <button onClick={() => handleMemberAction(m.id, 'member')} className="btn-accept">✓</button>
-                                        <button onClick={() => handleMemberAction(m.id, 'rejected')} className="btn-reject">✕</button>
-                                    </div>
-                                </div>
-                            ))}
-                        </>
                     )}
                 </div>
-            </aside>
-        )}
-
-      </section>
-
-        {/* Bulk Action Bar for Products */}
-        <div className={`bulk-action-bar active ${isSelectMode ? '' : '!translate-y-[150px]'}`}>
-            <div className="bulk-info text-slate-300 !border-white/10">
-                Đã chọn <span className="text-primary font-bold">{productSelectedIds.length}</span> sản phẩm
-            </div>
-            <div className="bulk-btns flex gap-3">
-                <button onClick={toggleSelectAllProducts} className="Btn btn-scifi-custom" title={productSelectedIds.length === products.length ? 'Bỏ chọn' : 'Tất cả'}>
-                    <span className="svgIcon"><Shield size={18} /></span>
-                    <span className="text">{productSelectedIds.length === products.length ? 'Bỏ chọn' : 'Tất cả'}</span>
-                </button>
-                <button 
-                    onClick={handleBulkDeleteProducts} 
-                    className="Btn btn-delete"
-                    disabled={productSelectedIds.length === 0}
-                    title="Xoá"
-                >
-                    <span className="svgIcon"><Trash2 size={18} /></span>
-                    <span className="text">Xoá ({productSelectedIds.length})</span>
-                </button>
-                <button onClick={() => setIsSelectMode(false)} className="Btn btn-scifi-custom" title="Hủy">
-                    <span className="svgIcon"><Ban size={18} /></span>
-                    <span className="text">Thoát</span>
-                </button>
             </div>
         </div>
+      )}
+
+      <div className="footer">
+        © 2026 Được Phát Triển Bởi Duy Đẹp Trai. Liên Hệ Gmail Để Được Hỗ Trợ
+      </div>
+      
+      {/* Report Modal */}
+      {showReportModal && <ReportModal targetType={reportConfig.type} targetId={reportConfig.id || id} onClose={() => setShowReportModal(false)} />}
+      
+      <div className={`bulk-action-bar active ${isSelectMode ? '' : '!translate-y-[150px]'}`} style={{position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)', background: '#1a1f2e', padding: '15px 25px', borderRadius: '15px', zIndex: 100, border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '20px', transition: 'transform 0.3s'}}>
+            <div className="text-slate-300 text-sm font-bold">Đà chọn <span className="text-primary">{productSelectedIds.length}</span> sản phẩm</div>
+            <div className="flex gap-4">
+                <button className="w-8 h-8 rounded-full bg-white/10 text-slate-400 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></button>
+                <button onClick={handleBulkDeleteProducts} className="w-8 h-8 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>
+                <button onClick={() => setIsSelectMode(false)} className="w-8 h-8 rounded-full bg-slate-500/20 text-slate-400 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg></button>
+            </div>
+      </div>
 
     </div>
-  );
+  )
 }

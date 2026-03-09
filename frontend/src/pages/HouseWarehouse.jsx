@@ -5,7 +5,7 @@ import { useToast } from "../context/ToastContext";
 import { useAuth } from "../hooks/useAuth";
 import BackButton from "../components/common/BackButton";
 import { SciFiSearch } from "../components/SciFiSearch";
-import { ShoppingCart, Check, Shield, ShieldCheck, Trash2, Ban, CreditCard } from "lucide-react";
+import { ShoppingCart, Check, Shield, ShieldCheck, Trash2, Ban, CreditCard, Image as ImageIcon } from "lucide-react";
 import "./HouseWarehouse.css";
 
 export function HouseWarehouse() {
@@ -23,7 +23,7 @@ export function HouseWarehouse() {
   const [selectedMember, setSelectedMember] = useState(null);
   const [filterDate, setFilterDate] = useState("");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [isImagesHidden, setIsImagesHidden] = useState(true);
+  const [showImages, setShowImages] = useState(false);
 
   // Bulk Delete
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -248,13 +248,36 @@ export function HouseWarehouse() {
                     {showFilterMenu && (
                         <div className="absolute top-16 right-0 w-72 bg-[#161329] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-fade-in backdrop-blur-xl">
                             <div className="p-3 border-b border-white/10">
-                                <h4 className="text-sm font-bold text-white mb-2">Lọc theo ngày đăng</h4>
-                                <input 
-                                    type="date"
-                                    className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white text-sm focus:outline-none focus:border-primary"
-                                    value={filterDate}
-                                    onChange={(e) => setFilterDate(e.target.value)}
-                                />
+                                <h4 className="text-sm font-bold text-white mb-2">Lọc theo thời gian</h4>
+                                <select 
+                                    className="w-full bg-slate-800 border border-white/10 rounded px-2 py-1.5 text-slate-300 text-sm focus:outline-none focus:border-primary mb-2 outline-none"
+                                    value={['', 'today', 'week', 'month', 'year'].includes(filterDate) ? filterDate : 'custom'}
+                                    onChange={(e) => {
+                                        if (e.target.value === 'custom') {
+                                            const today = new Date();
+                                            // Handle timezone appropriately for Vietnam
+                                            today.setHours(today.getHours() + 7);
+                                            setFilterDate(today.toISOString().split('T')[0]);
+                                        } else {
+                                            setFilterDate(e.target.value);
+                                        }
+                                    }}
+                                >
+                                    <option value="">Tất cả thời gian</option>
+                                    <option value="today">Hôm nay</option>
+                                    <option value="week">Tuần này</option>
+                                    <option value="month">Tháng này</option>
+                                    <option value="year">Năm nay</option>
+                                    <option value="custom">Tùy chọn ngày...</option>
+                                </select>
+                                {!['', 'today', 'week', 'month', 'year'].includes(filterDate) && (
+                                    <input 
+                                        type="date"
+                                        className="w-full bg-slate-700 border border-white/10 rounded px-2 py-1.5 text-white text-sm focus:outline-none focus:border-primary mt-1 outline-none"
+                                        value={filterDate}
+                                        onChange={(e) => setFilterDate(e.target.value)}
+                                    />
+                                )}
                             </div>
                             <div className="p-3 border-b border-white/10">
                                 <h4 className="text-sm font-bold text-white mb-2">Lọc theo thành viên</h4>
@@ -284,18 +307,28 @@ export function HouseWarehouse() {
                     )}
                 </div>
 
-                {isAdmin && products.length > 0 && (
+                <div className="flex items-center gap-2">
                     <button 
-                        onClick={() => {
-                            setIsSelectMode(!isSelectMode);
-                            setSelectedIds([]);
-                        }}
-                        className={`Btn btn-scifi-custom h-[44px] ${isSelectMode ? 'active !bg-blue-600 !text-white' : ''}`}
+                        className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg transition-all border ${showImages ? 'bg-blue-600/20 border-blue-500/50 text-blue-400' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-white/5'}`}
+                        onClick={() => setShowImages(!showImages)}
                     >
-                        <span className="svgIcon">{isSelectMode ? <ShieldCheck size={20} /> : <Shield size={20} />}</span>
-                        <span className="text">{isSelectMode ? 'Xong' : 'Chọn nhiều'}</span>
+                        <ImageIcon size={14} />
+                        {showImages ? 'Ẩn Ảnh' : 'Hiện Ảnh'}
                     </button>
-                )}
+
+                    {isAdmin && products.length > 0 && (
+                        <button 
+                            onClick={() => {
+                                setIsSelectMode(!isSelectMode);
+                                setSelectedIds([]);
+                            }}
+                            className={`Btn btn-scifi-custom h-[44px] ${isSelectMode ? 'active !bg-blue-600 !text-white' : ''}`}
+                        >
+                            <span className="svgIcon">{isSelectMode ? <ShieldCheck size={20} /> : <Shield size={20} />}</span>
+                            <span className="text">{isSelectMode ? 'Xong' : 'Chọn nhiều'}</span>
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
 
@@ -308,6 +341,7 @@ export function HouseWarehouse() {
                     <tr>
                       {isSelectMode && <th className="stt-col"><input type="checkbox" onChange={toggleSelectAll} checked={selectedIds.length === products.length} /></th>}
                       <th className="stt-col">STT</th>
+                      {showImages && <th className="w-12 text-center">Ảnh</th>}
                       <th>Tên sản phẩm</th>
                       <th>Người bán</th>
                       <th>Giá</th>
@@ -322,10 +356,18 @@ export function HouseWarehouse() {
                       <tr key={p.id} className={selectedIds.includes(p.id) ? 'bg-blue-500/10' : ''} onClick={() => isSelectMode && toggleSelect(p.id)}>
                         {isSelectMode && <td className="stt-col"><input type="checkbox" checked={selectedIds.includes(p.id)} readOnly /></td>}
                         <td className="stt-col">{index + 1}</td>
-                        <td className="font-bold flex items-center gap-3">
-                            {p.image_url && !isImagesHidden && (
-                                <img src={p.image_url} alt={p.name} className="w-8 h-8 rounded object-cover border border-white/10" />
-                            )}
+                        {showImages && (
+                             <td className="text-center">
+                                 <div className="flex justify-center">
+                                    {p.image_url ? (
+                                        <img src={p.image_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-white/10" onError={(e) => e.target.style.display = 'none'} />
+                                    ) : (
+                                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-xs opacity-50">📦</div>
+                                    )}
+                                 </div>
+                             </td>
+                        )}
+                        <td className="font-bold">
                             {p.name}
                         </td>
                         <td className="owner-col">{p.owner_name}</td>
@@ -340,7 +382,7 @@ export function HouseWarehouse() {
                             </span>
                         </td>
                         <td>
-                          <div className="action-btns">
+                          <div className="flex flex-wrap gap-2 items-center">
                             {!isSelectMode && (
                                 <>
                                     <button 
@@ -348,7 +390,26 @@ export function HouseWarehouse() {
                                         onClick={(e) => { e.stopPropagation(); handleBuyProduct(p); }}
                                         disabled={p.quantity <= 0 || buyingId === p.id}
                                     >
-                                        {buyingId === p.id ? '...' : 'Mua'}
+                                        {buyingId === p.id ? '...' : 'Mua ngay'}
+                                    </button>
+                                    
+                                    <button 
+                                        className={`btn-table-action btn-table-cart ${p.quantity <= 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        onClick={async (e) => { 
+                                            e.stopPropagation(); 
+                                            if (!user) return toast.error("Vui lòng đăng nhập!");
+                                            if (p.quantity <= 0) return toast.error("Sản phẩm đã hết hàng");
+                                            try {
+                                                await api.post('/cart/add', { product_id: p.id, qty: 1 });
+                                                toast.success("Đã thêm vào giỏ hàng!");
+                                            } catch (err) {
+                                                toast.error(err.message || "Thêm thất bại");
+                                            }
+                                        }}
+                                        disabled={p.quantity <= 0}
+                                        title="Thêm vào giỏ hàng"
+                                    >
+                                        <ShoppingCart size={14} className="inline-block" /> Thêm
                                     </button>
                                     
                                     {(isAdmin || p.seller_id === user?.id) && (

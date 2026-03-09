@@ -3,8 +3,6 @@ import { api } from "../../../services/api";
 const PROXY_URL = "/entertainment/proxy?url=";
 const DOMAINS = [
     { name: 'OPhim 1', url: "https://ophim1.com", type: 'ophim' },
-    { name: 'OPhim 17', url: "https://ophim17.cc", type: 'ophim' },
-    { name: 'KKPhim', url: "https://kkphim.vip", type: 'ophim' },
     { name: 'NguonC', url: "https://phim.nguonc.com", type: 'nguonc' }
 ];
 
@@ -192,7 +190,7 @@ class MovieService {
         return { items, pagination };
     }
 
-    async request(endpoint, params = {}, useCache = false, ttl = TTL_MEDIUM) {
+    async request(endpoint, params = {}, useCache = false, ttl = TTL_MEDIUM, retry = true) {
         await this.initialize();
 
         const getTargetUrl = (source) => {
@@ -247,7 +245,7 @@ class MovieService {
                 return result;
             } catch (err) {
                 console.error(`[MovieService] Request failed: ${targetUrl}`, err);
-                if (retries > 0) {
+                if (retry && retries > 0) {
                     await this.rotateSource();
                     return execute(retries - 1);
                 }
@@ -266,7 +264,7 @@ class MovieService {
     }
     async getCategories() { return this.request('/the-loai', {}, true, TTL_MEDIUM); }
     async getCountries() { return this.request('/quoc-gia', {}, true, TTL_MEDIUM); }
-    async getMovieDetail(slug) { return this.request(`/phim/${slug}`, {}, false); }
+    async getMovieDetail(slug, retry = true) { return this.request(`/phim/${slug}`, {}, false, undefined, retry); }
 
     async filter(params = {}) {
         await this.initialize();

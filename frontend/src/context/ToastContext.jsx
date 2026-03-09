@@ -51,7 +51,7 @@ export const ToastProvider = ({ children }) => {
             {children}
             
             {/* Toast Container */}
-            <div className="fixed top-5 right-5 z-[9999] flex flex-col gap-3 pointer-events-none">
+            <div className="fixed top-5 right-5 z-[1000000] flex flex-col gap-3 pointer-events-none">
                 {toasts.map((toast) => (
                     <ToastItem key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
                 ))}
@@ -59,26 +59,27 @@ export const ToastProvider = ({ children }) => {
 
             {/* Confirm Modal */}
             {confirmConfig && (
-                <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => handleConfirmClose(false)}></div>
-                    <div className="relative bg-slate-900 border border-white/10 rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-slide-up">
-                        <div className="flex items-center gap-3 mb-4 text-white">
-                            <div className="p-2 bg-blue-500/20 rounded-xl">
-                                <AlertTriangle className="text-blue-400" size={24} />
+                <div className="fixed inset-0 z-[1000001] flex items-center justify-center p-4 animate-fade-in">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => handleConfirmClose(false)}></div>
+                    <div className="relative bg-[#0f172a] border border-white/10 rounded-[2rem] p-8 max-w-sm w-full shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-modal-in overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-accent"></div>
+                        <div className="flex flex-col items-center text-center gap-4 mb-8">
+                            <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary mb-2">
+                                <AlertTriangle size={32} />
                             </div>
-                            <h3 className="text-xl font-black italic uppercase tracking-tight">{confirmConfig.title}</h3>
+                            <h3 className="text-2xl font-black text-white tracking-tighter uppercase">{confirmConfig.title}</h3>
+                            <p className="text-slate-400 text-sm font-medium leading-relaxed">{confirmConfig.message}</p>
                         </div>
-                        <p className="text-slate-400 text-sm leading-relaxed mb-8">{confirmConfig.message}</p>
                         <div className="flex gap-3">
                             <button 
                                 onClick={() => handleConfirmClose(false)}
-                                className="flex-1 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-2xl transition-all border border-white/5"
+                                className="flex-1 py-4 px-4 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white font-bold rounded-2xl transition-all border border-white/5"
                             >
                                 {confirmConfig.cancelLabel}
                             </button>
                             <button 
                                 onClick={() => handleConfirmClose(true)}
-                                className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg shadow-blue-600/20"
+                                className="btn-premium flex-1 !py-4"
                             >
                                 {confirmConfig.confirmLabel}
                             </button>
@@ -92,32 +93,32 @@ export const ToastProvider = ({ children }) => {
 
 const ToastItem = ({ toast, onClose }) => {
     const icons = {
-        success: <CheckCircle className="text-emerald-400" size={20} />,
-        error: <AlertCircle className="text-rose-400" size={20} />,
-        info: <Info className="text-blue-400" size={20} />,
-        warn: <AlertTriangle className="text-amber-400" size={20} />,
+        success: <CheckCircle className="text-primary" size={24} />,
+        error: <AlertCircle className="text-destructive" size={24} />,
+        info: <Info className="text-accent" size={24} />,
+        warn: <AlertTriangle className="text-orange-400" size={24} />,
     };
 
-    const colors = {
-        success: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-50',
-        error: 'border-rose-500/20 bg-rose-500/10 text-rose-50',
-        info: 'border-blue-500/20 bg-blue-500/10 text-blue-50',
-        warn: 'border-amber-500/20 bg-amber-500/10 text-amber-50',
+    const borders = {
+        success: 'border-primary/30',
+        error: 'border-destructive/30',
+        info: 'border-accent/30',
+        warn: 'border-orange-400/30',
     };
 
     return (
         <div className={`
-            flex items-center gap-4 px-6 py-4 rounded-2xl border backdrop-blur-xl shadow-2xl 
-            animate-slide-in-right pointer-events-auto min-w-[300px] max-w-md
-            ${colors[toast.type]}
+            flex items-center gap-4 px-6 py-5 rounded-2xl border backdrop-blur-2xl shadow-2xl 
+            animate-modal-in pointer-events-auto min-w-[320px] max-w-md bg-black/40
+            ${borders[toast.type]}
         `}>
             <div className="flex-shrink-0">{icons[toast.type]}</div>
-            <div className="flex-1 font-bold text-sm leading-relaxed">{toast.message}</div>
+            <div className="flex-1 font-bold text-white text-sm leading-relaxed">{toast.message}</div>
             <button 
                 onClick={onClose}
-                className="flex-shrink-0 p-1 hover:bg-white/10 rounded-lg transition-colors"
+                className="flex-shrink-0 p-1 hover:bg-white/10 rounded-lg transition-colors text-slate-500 hover:text-white"
             >
-                <X size={16} className="opacity-50" />
+                <X size={18} />
             </button>
         </div>
     );

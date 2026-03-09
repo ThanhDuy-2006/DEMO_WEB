@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../services/api";
 import BackButton from "../components/common/BackButton";
+import "./Login.css";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -32,50 +33,66 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="auth-wrapper p-4">
-      <div className="card glass p-8 animate-slide-up">
-        <h2 className="text-2xl font-bold text-white text-center mb-6">Quên Mật Khẩu?</h2>
-        <p className="text-center text-slate-400 mb-6 text-sm">
-            Nhập email của bạn để nhận hướng dẫn đặt lại mật khẩu.
-        </p>
-
-        {message ? (
-            <div className="bg-green-500/20 text-green-200 p-4 rounded-xl text-center mb-6 border border-green-500/30">
-                <div className="text-xl mb-2">✅</div>
-                {message}
-                <div className="mt-4">
-                    <Link to="/login" className="btn btn-sm btn-ghost">Quay lại đăng nhập</Link>
-                </div>
-            </div>
-        ) : (
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                {error && <div className="bg-red-500/20 text-red-200 p-3 rounded text-center">{error}</div>}
-                
-                <div>
-                    <label className="text-muted text-sm mb-1 block">Email</label>
-                    <input 
-                        type="email" 
-                        className="input" 
-                        value={email} 
-                        onChange={e => setEmail(e.target.value)} 
-                        required 
-                        placeholder="name@example.com"
-                    />
+    <div className="login-page-body">
+      <div className="login-container">
+        <div className="login-card animate-modal-in">
+          {message ? (
+              <div className="success-message show">
+                  <div className="success-icon">✓</div>
+                  <h3 className="text-xl font-bold text-white mb-2">Đã gửi yêu cầu!</h3>
+                  <p className="text-sm text-slate-300 mb-6">{message}</p>
+                  <div className="mt-8">
+                      <Link to="/login" className="login-btn !bg-white/10 hover:!bg-white/20 !shadow-none inline-block">Quay lại đăng nhập</Link>
+                  </div>
+              </div>
+          ) : (
+              <>
+                <div className="login-header">
+                    <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Quên Mật Khẩu?</h2>
+                    <p className="text-slate-400 mt-2">Nhập email của bạn để nhận hướng dẫn đặt lại mật khẩu.</p>
                 </div>
 
-                <button 
-                    type="submit" 
-                    className={`btn btn-primary mt-2 py-3 ${loading ? 'loading' : ''}`}
-                    disabled={loading}
-                >
-                    {loading ? 'Đang gửi...' : 'Gửi Yêu Cầu'}
-                </button>
+                <form onSubmit={handleSubmit} className="login-form">
+                    {error && <div className="error-message show mb-6">{error}</div>}
+                    
+                    <div className="form-group">
+                        <div className="input-wrapper">
+                            <input 
+                                type="email" 
+                                id="email"
+                                value={email} 
+                                onChange={e => setEmail(e.target.value)} 
+                                required 
+                                placeholder=" "
+                            />
+                            <label htmlFor="email">Email của bạn</label>
+                            <span className="focus-border"></span>
+                        </div>
+                    </div>
 
-                <div className="text-center mt-4 flex justify-center">
-                    <BackButton fallbackPath="/login" label="Quay lại Đăng nhập" className="!bg-transparent hover:!bg-white/5 !border-none text-slate-400 font-normal shadow-none" />
-                </div>
-            </form>
-        )}
+                    <div className="flex justify-center mt-10">
+                        <button 
+                            type="submit" 
+                            className={`login-btn flex justify-center items-center gap-2 ${loading ? 'loading' : ''}`}
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <div className="btn-loader"></div>
+                            ) : (
+                                <span className="btn-text">Gửi Yêu Cầu</span>
+                            )}
+                        </button>
+                    </div>
+
+                    <div className="text-center mt-6">
+                        <Link to="/login" className="text-xs font-black uppercase tracking-widest text-slate-500 hover:text-white transition-colors">
+                            Quay lại đăng nhập
+                        </Link>
+                    </div>
+                </form>
+              </>
+          )}
+        </div>
       </div>
     </div>
   );

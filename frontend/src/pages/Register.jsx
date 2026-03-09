@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
 import BackButton from "../components/common/BackButton";
+import { UserPlus } from "lucide-react";
 import "./Register.css";
 
 export default function Register() {
@@ -67,7 +68,6 @@ export default function Register() {
     <div className="auth-wrapper p-4">
         <div className="auth-container">
             <div className="auth-box relative">
-                <BackButton fallbackPath="/" className="!absolute left-0 -top-10 !bg-transparent hover:!bg-white/10 text-white shadow-none" label="Về trang chủ" />
                 <h1>Tạo Tài Khoản</h1>
                 <p className="sub">Nhập thông tin của bạn bên dưới để tạo tài khoản</p>
 
@@ -108,7 +108,12 @@ export default function Register() {
                         onChange={e => setFormData({...formData, password: e.target.value})}
                     />
 
-                    <button className="submit-btn">Đăng ký</button>
+                    <div className="flex justify-center mt-6">
+                        <button type="submit" className="submit-btn flex justify-center items-center gap-2 w-full">
+                            <UserPlus size={20} />
+                            <span>Đăng ký ngay</span>
+                        </button>
+                    </div>
                 </form>
 
                 <div className="auth-link">

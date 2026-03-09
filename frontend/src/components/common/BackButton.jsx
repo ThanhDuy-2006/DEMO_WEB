@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import NeonButton from './NeonButton';
 
 const BackButton = ({ fallbackPath = '/', className = '', label = 'Quay lại' }) => {
     const navigate = useNavigate();
@@ -14,26 +15,22 @@ const BackButton = ({ fallbackPath = '/', className = '', label = 'Quay lại' }
     };
 
     return (
-        <button 
+        <NeonButton 
             onClick={handleBack}
             className={`
-                inline-flex items-center gap-2 
-                px-3 py-2 rounded-xl 
-                text-slate-500 hover:text-white 
-                bg-transparent hover:bg-white/5 
-                transition-all duration-200 
-                group
+                !px-4 !py-2 !gap-3
+                !border-slate-500/50 hover:!border-[#0ff]
+                !text-slate-400 hover:!text-white
+                !bg-transparent
+                !rounded-xl
                 ${className}
             `}
-            aria-label="Go back"
         >
-            <div className="p-1 rounded-full group-hover:bg-white/10 transition-colors">
-                <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-            </div>
-            <span className="font-bold text-sm hidden sm:inline-block uppercase tracking-wider">
+            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="font-bold text-xs sm:inline-block uppercase tracking-wider">
                 {label}
             </span>
-        </button>
+        </NeonButton>
     );
 };
 

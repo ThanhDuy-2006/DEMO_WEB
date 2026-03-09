@@ -22,20 +22,32 @@ const DepositManagement = lazy(() => import("./pages/DepositManagement").then(m 
 const UserWarehouse = lazy(() => import("./pages/UserWarehouse").then(m => ({ default: m.UserWarehouse })));
 const UserHistory = lazy(() => import("./pages/UserHistory").then(m => ({ default: m.UserHistory })));
 const Messages = lazy(() => import("./pages/Messages"));
-const MyProducts = lazy(() => import("./pages/MyProducts").then(m => ({ default: m.MyProducts })));
-const Trash = lazy(() => import("./pages/Trash").then(m => ({ default: m.Trash })));
 const Expenses = lazy(() => import("./pages/Expenses").then(m => ({ default: m.Expenses })));
 const Wallet = lazy(() => import("./pages/Wallet").then(m => ({ default: m.Wallet })));
 const Cart = lazy(() => import("./pages/Cart").then(m => ({ default: m.Cart })));
 const DemoUI = lazy(() => import("./pages/DemoUI").then(m => ({ default: m.DemoUI })));
+const Marketplace = lazy(() => import("./pages/Marketplace"));
+const ProductDetail = lazy(() => import("./features/marketplace/pages/ProductDetail"));
+const AdminMarketplace = lazy(() => import("./features/admin-marketplace/pages/AdminMarketplace"));
 
 // House components - Using named imports specifically
 const HouseList = lazy(() => import("./pages/House").then(m => ({ default: m.HouseList })));
 const HouseDetail = lazy(() => import("./pages/House").then(m => ({ default: m.HouseDetail })));
 const HouseWarehouse = lazy(() => import("./pages/HouseWarehouse").then(m => ({ default: m.HouseWarehouse })));
+const HouseHistory = lazy(() => import("./pages/HouseHistory"));
+
+// Admin Pages
+const AdminDashboard = lazy(() => import("./pages/Admin/AdminDashboard"));
+const Moderation = lazy(() => import("./pages/Admin/Moderation"));
+const AdminAutoForm = lazy(() => import("./pages/Admin/AdminAutoForm"));
+const VocabularyManagement = lazy(() => import("./pages/Admin/VocabularyManagement"));
+import AdminRoute from "./components/AdminRoute";
 
 // Entertainment Module
 const Ent = lazy(() => import("./modules/entertainment"));
+
+// Learning Module
+const Learning = lazy(() => import("./modules/learning"));
 
 const LoadingFallback = () => (
     <div className="flex items-center justify-center min-h-[60vh] text-slate-400">
@@ -67,33 +79,41 @@ function App() {
                   <Route path="/reset-password" element={<ResetPassword />} />
 
                   {/* Protected/Dashboard Routes */}
-                  <Route path="/" element={<Layout />}>
+                  <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                     <Route index element={<Home />} />
                     
                     <Route path="houses" element={<HouseList />} />
+                    <Route path="marketplace" element={<Marketplace />} />
+                    <Route path="product/:id" element={<ProductDetail />} />
                     <Route path="houses/:id" element={<HouseDetail />} />
                     <Route path="houses/:id/warehouse" element={<HouseWarehouse />} />
+                    <Route path="houses/:id/history" element={<HouseHistory />} />
                     
-                    <Route path="cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+                    <Route path="cart" element={<Cart />} />
                     <Route path="wallet" element={<Wallet />} />
                     <Route path="expenses" element={<Expenses />} />
                     <Route path="profile" element={<Profile />} />
                     <Route path="user-management" element={<UserManagement />} />
                     <Route path="user-activity" element={<UserActivity />} />
+                    <Route path="admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                    <Route path="admin/moderation" element={<AdminRoute><Moderation /></AdminRoute>} />
+                    <Route path="admin/marketplace" element={<AdminRoute><AdminMarketplace /></AdminRoute>} />
+                    <Route path="admin/auto-form" element={<AdminRoute><AdminAutoForm /></AdminRoute>} />
+                    <Route path="admin/vocabulary" element={<AdminRoute><VocabularyManagement /></AdminRoute>} />
                     <Route path="deposit-management" element={<DepositManagement />} />
-                    <Route path="my-warehouse" element={<ProtectedRoute><UserWarehouse /></ProtectedRoute>} />
-                    <Route path="history" element={<ProtectedRoute><UserHistory /></ProtectedRoute>} />
-                    <Route path="messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-                    <Route path="my-products" element={<ProtectedRoute><MyProducts /></ProtectedRoute>} />
-                    <Route path="my-products/trash" element={<ProtectedRoute><Trash /></ProtectedRoute>} />
-                    
+                    <Route path="my-warehouse" element={<UserWarehouse />} />
+                    <Route path="history" element={<UserHistory />} />
+                    <Route path="messages" element={<Messages />} />
                     <Route path="entertainment/*" element={
                          <Suspense fallback={<LoadingFallback />}>
                              <Ent />
                          </Suspense>
                     } />
-
-                    <Route path="demo-ui" element={<DemoUI />} />
+                    <Route path="learning/*" element={
+                         <Suspense fallback={<LoadingFallback />}>
+                             <Learning />
+                         </Suspense>
+                    } />
                   </Route>
                 </Routes>
               </Suspense>
