@@ -81,7 +81,11 @@ cd backend
 npm install
 npm run dev
 ```
-*Khi thấy dòng `✅ MySQL Connected successfully` và `✅ Database Migration Completed` là bạn đã thành công.*
+*Sau khi server chạy, hãy mở một Terminal mới tại thư mục backend và chạy lệnh sau để tạo tài khoản Admin:*
+```bash
+npm run seed:admin
+```
+*Mặc định tài khoản là admin@example.com / 123456 (Bạn có thể đổi trong .env).*
 
 **Terminal 2 (Frontend):**
 ```bash

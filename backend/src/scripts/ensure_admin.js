@@ -26,7 +26,7 @@ const ensureAdmin = async () => {
             // Assuming it does since migration ran.
             
             await pool.execute(`
-                INSERT INTO users (email, password, role, full_name, status) 
+                INSERT INTO users (email, password_hash, role, full_name, status) 
                 VALUES (?, ?, 'admin', 'System Administrator', 'active')
             `, [adminEmail, hashedPassword]);
             
