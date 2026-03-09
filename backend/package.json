@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "seed:admin": "node src/scripts/ensure_admin.js"
+    "seed:admin": "node src/scripts/ensure_admin.js",
+    "seed:vocabulary": "node src/modules/vocabulary/seed.js"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",

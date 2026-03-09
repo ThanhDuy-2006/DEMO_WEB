@@ -43,14 +43,15 @@ cd DEMO_WEB
 ```
 
 ### Bước 2: Cấu hình Cơ Sở Dữ Liệu (Database)
-Đây là bước quan trọng nhất. Hãy làm theo trình tự:
+Hệ thống hỗ trợ **tự động khởi tạo bảng**, bạn chỉ cần chuẩn bị database trống:
 
-1.  Mở **MySQL Workbench** hoặc công cụ quản lý DB của bạn.
-2.  Tạo một database mới tên là `testdb` (hoặc tên tùy ý):
+1.  Mở **MySQL Workbench** hoặc công cụ quản lý DB của bạn (như Laragon, XAMPP).
+2.  Tạo một database mới tên là `testdb`:
     ```sql
     CREATE DATABASE testdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
     ```
-3.  Bạn **không cần** import SQL thủ công. Hệ thống sẽ tự động tạo bảng khi khởi động lần đầu.
+3.  **Tự động (Khuyên dùng)**: Bạn chỉ cần cấu hình `.env` (Bước 3), khi chạy backend (`npm run dev`), hệ thống sẽ tự động đọc file tại `backend/src/scripts/schema.sql` và tạo toàn bộ bảng cho bạn.
+4.  **Thủ công (Nếu muốn)**: Nếu bạn muốn tự chạy, hãy import file [schema.sql](./backend/src/scripts/schema.sql) vào database `testdb` vừa tạo.
 
 ### Bước 3: Cấu hình Biến Môi Trường (.env)
 
@@ -86,6 +87,11 @@ npm run dev
 npm run seed:admin
 ```
 *Mặc định tài khoản là admin@example.com / 123456 (Bạn có thể đổi trong .env).*
+
+*Nếu bạn muốn thêm dữ liệu từ vựng mẫu để học tiếng Anh:*
+```bash
+npm run seed:vocabulary
+```
 
 **Terminal 2 (Frontend):**
 ```bash
